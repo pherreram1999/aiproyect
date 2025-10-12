@@ -116,7 +116,7 @@ func (j *Juego) Move() {
 		}
 		// validamos si los nuevos movimientos estan dentro del mapa
 
-		if (puntoDestino.y > 0 && puntoDestino.y < j.Dimensiones.Filas) && (puntoDestino.x > 0 && puntoDestino.x < j.Dimensiones.Columnas) {
+		if (puntoDestino.y >= 0 && puntoDestino.y < j.Dimensiones.Filas) && (puntoDestino.x >= 0 && puntoDestino.x < j.Dimensiones.Columnas) {
 			// estamos dentro del mapa, vemos si es un movmiento transitable
 			if j.Maze[puntoDestino.y][puntoDestino.x] == 0 { // es transitable
 				j.Player.targetPosition.x = float64((puntoDestino.x * squareSize) + (squareSize / 2))
