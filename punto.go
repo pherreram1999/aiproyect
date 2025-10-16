@@ -16,3 +16,7 @@ func NewPoint(x, y int, f, g float64) *Punto {
 		g: g,
 	}
 }
+
+func (p *Punto) BuildWay() {
+
+}
