@@ -1,15 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
-	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 const (
+	Transitable = 0
+
 	squareSize = 20
 	moveSpeed  = 2
 
@@ -24,10 +24,6 @@ type Dimensiones struct {
 	Columnas int
 }
 
-type Punto struct {
-	x, y int
-}
-
 func (self *Punto) Copy(other *Punto) {
 	self.x = other.x
 	self.y = other.y
@@ -38,51 +34,6 @@ func (self *Punto) Clone() *Punto {
 		x: self.x,
 		y: self.y,
 	}
-}
-
-type Vector struct {
-	x, y float64
-}
-
-func (self *Vector) Add(other *Vector) *Vector {
-	return &Vector{
-		x: self.x + other.x,
-		y: self.y + other.y,
-	}
-}
-
-func (self *Vector) Sub(other *Vector) *Vector {
-	return &Vector{
-		x: self.x - other.x,
-		y: self.y - other.y,
-	}
-}
-
-func (self *Vector) SquaredDistance() float64 {
-	return self.x*self.x + self.y*self.y
-}
-
-func (self *Vector) Distance() float64 {
-	return math.Sqrt(self.SquaredDistance())
-}
-
-func (self *Vector) Normalize() *Vector {
-	mod := self.Distance()
-	return &Vector{
-		x: self.x / mod,
-		y: self.y / mod,
-	}
-}
-
-func (self *Vector) MultiplyByScalar(scalar float64) *Vector {
-	return &Vector{
-		x: self.x * scalar,
-		y: self.y * scalar,
-	}
-}
-
-func (self *Vector) String() string {
-	return fmt.Sprintf("(%f.2,%f.2)", self.x, self.y)
 }
 
 type Player struct {
@@ -200,7 +151,7 @@ func (j *Juego) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeig
 }
 
 func main() {
-	puntoInicial := &Punto{1, 1}
+	puntoInicial := &Punto{x: 1, y: 1}
 
 	middleX := float64(puntoInicial.x*squareSize + (squareSize / 2))
 	middleY := float64(puntoInicial.y*squareSize + (squareSize / 2))
@@ -209,7 +160,7 @@ func main() {
 		Maze:        CrearLaberintoPrim(60, 35),
 		Dimensiones: &Dimensiones{},
 		Player: &Player{
-			punto:          &Punto{1, 1},
+			punto:          &Punto{x: 1, y: 1},
 			position:       &Vector{middleX, middleY},
 			targetPosition: &Vector{middleX, middleY},
 		},
