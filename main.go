@@ -11,7 +11,7 @@ import (
 
 const (
 	squareSize = 20
-	moveSpeed  = 2.0
+	moveSpeed  = 2
 
 	radioSize        = squareSize / 3
 	squaredMoveSpeed = moveSpeed * squareSize
@@ -158,7 +158,6 @@ func (j *Juego) Move() {
 }
 
 func (j *Juego) Update() error {
-
 	j.Move()
 	return nil
 }
@@ -187,7 +186,6 @@ func (j *Juego) DrawMaze(screen *ebiten.Image) {
 }
 
 func (j *Juego) Draw(screen *ebiten.Image) {
-
 	j.DrawMaze(screen)
 	// dibujamos el jugaodor
 	// lo colocamos en medio de la celda
@@ -208,7 +206,7 @@ func main() {
 	middleY := float64(puntoInicial.y*squareSize + (squareSize / 2))
 
 	juego := &Juego{
-		Maze:        getMatriz(),
+		Maze:        CrearLaberintoPrim(60, 35),
 		Dimensiones: &Dimensiones{},
 		Player: &Player{
 			punto:          &Punto{1, 1},
