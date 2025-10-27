@@ -1,9 +1,14 @@
 package main
 
 import (
+	"embed"
+	"fmt"
 	"image/color"
 
+	_ "image/gif"
+
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
@@ -15,7 +20,12 @@ const (
 
 	radioSize        = squareSize / 3
 	squaredMoveSpeed = moveSpeed * squareSize
+
+	TPS = 60
 )
+
+//go:embed assets
+var assetsFS embed.FS
 
 type Dimensiones struct {
 	Alto     int
@@ -36,10 +46,24 @@ func (self *Punto) Clone() *Punto {
 	}
 }
 
+type PlayerAnimation struct {
+	WalkingFrames     []*ebiten.Image
+	CurrentFrameIndex int
+	TickCounter       int
+	TickElapse        int
+	NumFrames         int
+}
+
+func (self *PlayerAnimation) GetCurrentFrame() *ebiten.Image {
+	return self.WalkingFrames[self.CurrentFrameIndex]
+}
+
 type Player struct {
 	position       *Vector
 	targetPosition *Vector
 	punto          *Punto
+	// assets
+	Animation *PlayerAnimation
 }
 
 type Juego struct {
@@ -49,7 +73,19 @@ type Juego struct {
 	IsMoving    bool
 }
 
-func (j *Juego) Move() {
+func (j *Juego) MovePlayer() {
+	// calculamos el frame del movimeinto basandonos en los ticks
+
+	j.Player.Animation.TickCounter++ // aumentos el tick
+
+	if j.Player.Animation.TickCounter > j.Player.Animation.TickElapse {
+		j.Player.Animation.TickCounter = 0 // se renicia el contador de ticks
+		j.Player.Animation.CurrentFrameIndex++
+		if j.Player.Animation.CurrentFrameIndex >= j.Player.Animation.NumFrames {
+			j.Player.Animation.CurrentFrameIndex = 0
+		}
+	}
+
 	if !j.IsMoving {
 		puntoDestino := j.Player.punto.Clone()
 		if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
@@ -66,7 +102,6 @@ func (j *Juego) Move() {
 			j.IsMoving = true
 		}
 		// validamos si los nuevos movimientos estan dentro del mapa
-
 		if (puntoDestino.y >= 0 && puntoDestino.y < j.Dimensiones.Filas) && (puntoDestino.x >= 0 && puntoDestino.x < j.Dimensiones.Columnas) {
 			// estamos dentro del mapa, vemos si es un movmiento transitable
 			if j.Maze[puntoDestino.y][puntoDestino.x] == 0 { // es transitable
@@ -75,7 +110,6 @@ func (j *Juego) Move() {
 				j.Player.punto.Copy(puntoDestino)
 				puntoDestino = nil // para garbage colector
 			}
-
 		}
 	}
 
@@ -109,7 +143,7 @@ func (j *Juego) Move() {
 }
 
 func (j *Juego) Update() error {
-	j.Move()
+	j.MovePlayer()
 	return nil
 }
 
@@ -140,21 +174,75 @@ func (j *Juego) Draw(screen *ebiten.Image) {
 	j.DrawMaze(screen)
 	// dibujamos el jugaodor
 	// lo colocamos en medio de la celda
-	jx := float32(j.Player.position.x)
-	jy := float32(j.Player.position.y)
+	// Obtenemos la posición actual del jugador
+	// Estas coordenadas representan el CENTRO donde queremos dibujar
+	jx := j.Player.position.x
+	jy := j.Player.position.y
+	//
+	//// Creamos las opciones de transformación
+	imgOptions := &ebiten.DrawImageOptions{}
 
-	vector.FillCircle(screen, jx, jy, radioSize, color.RGBA{R: 50, G: 200, B: 50, A: 255}, true)
+	// PASO 1: ESCALA (siempre primero)
+	// Reducimos la imagen al 5% de su tamaño original
+	// Si la imagen es 1000x1000px, quedará en 50x50px
+	//imgOptions.GeoM.Scale(.05, .05)
+	//
+	//// PASO 2: CENTRAR LA IMAGEN
+	//// Por defecto, DrawImage dibuja desde la esquina superior izquierda
+	//// Necesitamos mover la imagen para que su centro esté en (jx, jy)
+	//// Obtenemos el tamaño de la imagen DESPUÉS de escalar
+	playerFrame := j.Player.Animation.GetCurrentFrame()
+	//bounds := j.Player.Animation.GetCurrentFrame().Bounds()
+	//// Ancho y alto de la imagen escalada
+	//anchoEscalado := float64(bounds.Dx()) // * 0.05
+	//altoEscalado := float64(bounds.Dy()) // * 0.05
+	//
+	//// PASO 3: TRASLACIÓN (siempre al final)
+	//// Movemos la imagen a la posición deseada
+	//// Restamos la mitad del tamaño para centrarla
+	imgOptions.GeoM.Translate(
+		jx, // Centramos horizontalmente
+		jy, // Centramos verticalmente
+	)
+	//
+	//// Dibujamos la imagen con todas las transformaciones aplicadas
+	screen.DrawImage(playerFrame, imgOptions)
 }
 
 func (j *Juego) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return j.Dimensiones.Ancho, j.Dimensiones.Alto
 }
 
+func LoadWalkingAssets() []*ebiten.Image {
+	var frames []*ebiten.Image
+	// cargamos los assets de nibit caminanando
+	for i := 0; i <= 9; i++ {
+		f, err := assetsFS.Open(fmt.Sprintf("assets/nibbit_walking/f_000%d.png", i))
+		if err != nil {
+			panic(err)
+		}
+
+		frame, _, err := ebitenutil.NewImageFromReader(f)
+
+		if err != nil {
+			panic(err)
+		}
+
+		frames = append(frames, frame)
+	}
+
+	return frames
+}
+
 func main() {
+
+	// cargamos los assets
 	puntoInicial := &Punto{x: 1, y: 1}
 
 	middleX := float64(puntoInicial.x*squareSize + (squareSize / 2))
 	middleY := float64(puntoInicial.y*squareSize + (squareSize / 2))
+
+	walkingAssets := LoadWalkingAssets()
 
 	juego := &Juego{
 		Maze:        CrearLaberintoPrim(60, 35),
@@ -163,8 +251,15 @@ func main() {
 			punto:          &Punto{x: 1, y: 1},
 			position:       &Vector{middleX, middleY},
 			targetPosition: &Vector{middleX, middleY},
+			Animation: &PlayerAnimation{
+				WalkingFrames: walkingAssets,
+				TickElapse:    TPS * 0.2,
+				NumFrames:     len(walkingAssets),
+			},
 		},
 	}
+
+	fmt.Println(juego.Player.Animation.WalkingFrames)
 
 	f, c := juego.Maze.getShape()
 
