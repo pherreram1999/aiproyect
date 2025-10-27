@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"math"
 
-	_ "image/gif"
+	_ "image/png"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -61,15 +61,22 @@ func (self *Punto) Clone() *Punto {
 }
 
 type PlayerAnimation struct {
-	WalkingFrames     []*ebiten.Image
-	CurrentFrameIndex int
-	TickCounter       int
-	TickElapse        int
-	NumFrames         int
+	WalkingFrames            []*ebiten.Image
+	StayingFrames            []*ebiten.Image
+	IsMoving                 bool
+	CurrentWalkingFrameIndex int
+	CurrentStayingFrameIndex int
+	TickCounter              int
+	TickElapse               int
+	NumWalkingFrames         int
+	NumStayingFrames         int
 }
 
 func (self *PlayerAnimation) GetCurrentFrame() *ebiten.Image {
-	return self.WalkingFrames[self.CurrentFrameIndex]
+	if self.IsMoving {
+		return self.WalkingFrames[self.CurrentWalkingFrameIndex]
+	}
+	return self.StayingFrames[self.CurrentStayingFrameIndex]
 }
 
 type Player struct {
@@ -108,16 +115,6 @@ func (j *Juego) MovePlayer() {
 
 	j.Player.Animation.TickCounter++ // aumentos el tick
 
-	if j.Player.Animation.TickCounter > j.Player.Animation.TickElapse {
-		j.Player.Animation.TickCounter = 0 // se renicia el contador de ticks
-		j.Player.Animation.CurrentFrameIndex++
-		if j.Player.Animation.CurrentFrameIndex >= j.Player.Animation.NumFrames {
-			j.Player.Animation.CurrentFrameIndex = 0
-		}
-	}
-
-	// calculamos el angulo segun su direccion
-
 	if !j.IsMoving {
 		puntoDestino := j.Player.punto.Clone()
 		if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
@@ -137,6 +134,7 @@ func (j *Juego) MovePlayer() {
 			j.IsMoving = true
 			j.Player.Direccion = DireccionDerecha
 		}
+
 		// validamos si los nuevos movimientos estan dentro del mapa
 		if (puntoDestino.y >= 0 && puntoDestino.y < j.Dimensiones.Filas) && (puntoDestino.x >= 0 && puntoDestino.x < j.Dimensiones.Columnas) {
 			// estamos dentro del mapa, vemos si es un movmiento transitable
@@ -148,10 +146,32 @@ func (j *Juego) MovePlayer() {
 				puntoDestino = nil // para garbage colector
 			}
 		}
+
+		// si no esta movimiento validamos los frames de cuando esta parado
+
+		// validamos el tick del frame para cuando NO se esta movmiendo
+
+		if j.Player.Animation.TickCounter > j.Player.Animation.TickElapse {
+			j.Player.Animation.TickCounter = 0 // se renicia el contador de ticks
+			j.Player.Animation.CurrentStayingFrameIndex++
+			if j.Player.Animation.CurrentStayingFrameIndex >= j.Player.Animation.NumStayingFrames {
+				j.Player.Animation.CurrentStayingFrameIndex = 0
+			}
+		}
+
 	}
 
 	// en cada frame hacemos el calculo del movimiento del vector
 	if j.IsMoving {
+
+		// validamos el tick del frame para cuando se esta movmiento
+		if j.Player.Animation.TickCounter > j.Player.Animation.TickElapse {
+			j.Player.Animation.TickCounter = 0 // se renicia el contador de ticks
+			j.Player.Animation.CurrentWalkingFrameIndex++
+			if j.Player.Animation.CurrentWalkingFrameIndex >= j.Player.Animation.NumWalkingFrames {
+				j.Player.Animation.CurrentWalkingFrameIndex = 0
+			}
+		}
 		// obtenemos la direccion
 		dir := j.Player.targetPosition.Sub(j.Player.position)
 		// obtenemos distancia
@@ -175,6 +195,9 @@ func (j *Juego) MovePlayer() {
 			j.Player.position.y = j.Player.targetPosition.y
 			j.IsMoving = false
 		}
+
+		// para indcarle que animacion debe usar, cuando se mueve o se queda quieto
+		j.Player.Animation.IsMoving = j.IsMoving
 
 	}
 }
@@ -243,25 +266,30 @@ func (j *Juego) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeig
 	return j.Dimensiones.Ancho, j.Dimensiones.Alto
 }
 
-func LoadWalkingAssets() []*ebiten.Image {
+func loadingSpriteSheet(formatPath string, start, end int) []*ebiten.Image {
 	var frames []*ebiten.Image
 	// cargamos los assets de nibit caminanando
-	for i := 0; i <= 9; i++ {
-		f, err := assetsFS.Open(fmt.Sprintf("assets/nibbit_walking/f_000%d.png", i))
+	for i := start; i <= end; i++ {
+		f, err := assetsFS.Open(fmt.Sprintf(formatPath, i))
 		if err != nil {
 			panic(err)
 		}
-
 		frame, _, err := ebitenutil.NewImageFromReader(f)
-
 		if err != nil {
 			panic(err)
 		}
-
 		frames = append(frames, frame)
 	}
 
 	return frames
+}
+
+func loadingWalkingSpriteSheet() []*ebiten.Image {
+	return loadingSpriteSheet("assets/nibbit_walking/f_000%d.png", 0, 9)
+}
+
+func loadingStayingSpriteSheet() []*ebiten.Image {
+	return loadingSpriteSheet("assets/nibbit_staying/fs_%d.png", 0, 11)
 }
 
 func main() {
@@ -272,7 +300,8 @@ func main() {
 	middleX := float64(puntoInicial.x * squareSize)
 	middleY := float64(puntoInicial.y * squareSize)
 
-	walkingAssets := LoadWalkingAssets()
+	walkingAssets := loadingWalkingSpriteSheet()
+	stayingAssets := loadingStayingSpriteSheet()
 
 	// player dimensions
 
@@ -281,13 +310,15 @@ func main() {
 		Dimensiones: &Dimensiones{},
 		Player: &Player{
 			punto:          &Punto{x: 1, y: 1},
-			Direccion:      DireccionAbajo,
+			Direccion:      DireccionAbajo, // es la direccion por defecto de la imagen
 			position:       &Vector{middleX, middleY},
 			targetPosition: &Vector{middleX, middleY},
 			Animation: &PlayerAnimation{
-				WalkingFrames: walkingAssets,
-				TickElapse:    TPS * 0.2,
-				NumFrames:     len(walkingAssets),
+				WalkingFrames:    walkingAssets,
+				StayingFrames:    stayingAssets,
+				TickElapse:       TPS * 0.2,
+				NumWalkingFrames: len(walkingAssets),
+				NumStayingFrames: len(stayingAssets),
 			},
 		},
 	}
