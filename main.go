@@ -15,7 +15,7 @@ import (
 const (
 	Transitable = 0
 
-	squareSize = 20
+	squareSize = 15
 	moveSpeed  = 2
 
 	radioSize        = squareSize / 3
@@ -105,8 +105,9 @@ func (j *Juego) MovePlayer() {
 		if (puntoDestino.y >= 0 && puntoDestino.y < j.Dimensiones.Filas) && (puntoDestino.x >= 0 && puntoDestino.x < j.Dimensiones.Columnas) {
 			// estamos dentro del mapa, vemos si es un movmiento transitable
 			if j.Maze[puntoDestino.y][puntoDestino.x] == 0 { // es transitable
-				j.Player.targetPosition.x = float64((puntoDestino.x * squareSize) + (squareSize / 2))
-				j.Player.targetPosition.y = float64((puntoDestino.y * squareSize) + (squareSize / 2))
+				// colocamos el destino pero hacia el centro
+				j.Player.targetPosition.x = float64(puntoDestino.x * squareSize)
+				j.Player.targetPosition.y = float64(puntoDestino.y * squareSize)
 				j.Player.punto.Copy(puntoDestino)
 				puntoDestino = nil // para garbage colector
 			}
@@ -239,10 +240,12 @@ func main() {
 	// cargamos los assets
 	puntoInicial := &Punto{x: 1, y: 1}
 
-	middleX := float64(puntoInicial.x*squareSize + (squareSize / 2))
-	middleY := float64(puntoInicial.y*squareSize + (squareSize / 2))
+	middleX := float64(puntoInicial.x * squareSize)
+	middleY := float64(puntoInicial.y * squareSize)
 
 	walkingAssets := LoadWalkingAssets()
+
+	// player dimensions
 
 	juego := &Juego{
 		Maze:        CrearLaberintoPrim(60, 35),
@@ -258,8 +261,6 @@ func main() {
 			},
 		},
 	}
-
-	fmt.Println(juego.Player.Animation.WalkingFrames)
 
 	f, c := juego.Maze.getShape()
 
