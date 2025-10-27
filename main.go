@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"image/color"
+	"math"
 
 	_ "image/gif"
 
@@ -23,6 +24,19 @@ const (
 
 	TPS = 60
 )
+
+type Direccion int
+
+const (
+	DireccionArriba Direccion = iota
+	DireccionDerecha
+	DireccionAbajo
+	DireccionIzquierda
+)
+
+func gradosARadianes(grados float64) float64 {
+	return grados * math.Pi / 180
+}
 
 //go:embed assets
 var assetsFS embed.FS
@@ -62,8 +76,24 @@ type Player struct {
 	position       *Vector
 	targetPosition *Vector
 	punto          *Punto
+	Direccion      Direccion
 	// assets
 	Animation *PlayerAnimation
+}
+
+func (p *Player) obtenerDireccionAngulo() float64 {
+	switch p.Direccion {
+	case DireccionAbajo:
+		return gradosARadianes(0) // 0°
+	case DireccionIzquierda:
+		return gradosARadianes(90) // 90°
+	case DireccionArriba:
+		return gradosARadianes(180) // 180°
+	case DireccionDerecha:
+		return gradosARadianes(270) // 270°
+	}
+	return gradosARadianes(0)
+
 }
 
 type Juego struct {
@@ -86,20 +116,26 @@ func (j *Juego) MovePlayer() {
 		}
 	}
 
+	// calculamos el angulo segun su direccion
+
 	if !j.IsMoving {
 		puntoDestino := j.Player.punto.Clone()
 		if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
 			puntoDestino.y-- // sube un posicion arriba, el index anterior
 			j.IsMoving = true
+			j.Player.Direccion = DireccionArriba
 		} else if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
-			puntoDestino.y++ // baja un posicion arriba, aumenta el indice
+			puntoDestino.y++ // baja un posicion, aumenta el indice
 			j.IsMoving = true
+			j.Player.Direccion = DireccionAbajo
 		} else if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
 			puntoDestino.x-- // nos vamos a la izquierda
 			j.IsMoving = true
+			j.Player.Direccion = DireccionIzquierda
 		} else if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
 			puntoDestino.x++ // nos vamos a la derecha
 			j.IsMoving = true
+			j.Player.Direccion = DireccionDerecha
 		}
 		// validamos si los nuevos movimientos estan dentro del mapa
 		if (puntoDestino.y >= 0 && puntoDestino.y < j.Dimensiones.Filas) && (puntoDestino.x >= 0 && puntoDestino.x < j.Dimensiones.Columnas) {
@@ -183,24 +219,17 @@ func (j *Juego) Draw(screen *ebiten.Image) {
 	//// Creamos las opciones de transformación
 	imgOptions := &ebiten.DrawImageOptions{}
 
-	// PASO 1: ESCALA (siempre primero)
-	// Reducimos la imagen al 5% de su tamaño original
-	// Si la imagen es 1000x1000px, quedará en 50x50px
-	//imgOptions.GeoM.Scale(.05, .05)
-	//
-	//// PASO 2: CENTRAR LA IMAGEN
-	//// Por defecto, DrawImage dibuja desde la esquina superior izquierda
-	//// Necesitamos mover la imagen para que su centro esté en (jx, jy)
-	//// Obtenemos el tamaño de la imagen DESPUÉS de escalar
 	playerFrame := j.Player.Animation.GetCurrentFrame()
-	//bounds := j.Player.Animation.GetCurrentFrame().Bounds()
-	//// Ancho y alto de la imagen escalada
-	//anchoEscalado := float64(bounds.Dx()) // * 0.05
-	//altoEscalado := float64(bounds.Dy()) // * 0.05
-	//
-	//// PASO 3: TRASLACIÓN (siempre al final)
-	//// Movemos la imagen a la posición deseada
-	//// Restamos la mitad del tamaño para centrarla
+	bounds := playerFrame.Bounds()
+	w := float64(bounds.Dx())
+	h := float64(bounds.Dy())
+
+	// Rotar desde el centro de la imagen
+	// se tiene que centrar,para al momento de girar no salga de cuadro
+	imgOptions.GeoM.Translate(-w/2, -h/2) // lo movemos hacia su origen desde el centro
+	imgOptions.GeoM.Rotate(j.Player.obtenerDireccionAngulo())
+	imgOptions.GeoM.Translate(w/2, h/2) // lo regresamos
+
 	imgOptions.GeoM.Translate(
 		jx, // Centramos horizontalmente
 		jy, // Centramos verticalmente
@@ -252,6 +281,7 @@ func main() {
 		Dimensiones: &Dimensiones{},
 		Player: &Player{
 			punto:          &Punto{x: 1, y: 1},
+			Direccion:      DireccionAbajo,
 			position:       &Vector{middleX, middleY},
 			targetPosition: &Vector{middleX, middleY},
 			Animation: &PlayerAnimation{
