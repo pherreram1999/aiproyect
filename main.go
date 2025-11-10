@@ -28,20 +28,27 @@ type Game struct {
 
 // MovePlayer se encarga de crear de calcular las frames actuales Y las posiciones vectoriales
 func (j *Game) MovePlayer() {
-	// calculamos el frame del movimeinto basandonos en los ticks
 	p := j.Player
-	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
-		p.MoveToUp()
-	} else if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
-		p.MoveToDown()
-	} else if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-		p.MoveToLeft()
-	} else if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-		p.MoveToRight()
+
+	// ✅ Primero, continuar movimiento en progreso
+	if p.IsMoving {
+		p.Moving()
 	}
 
-	p.Tick() // para avanzar el contador de las animiacines
+	// ✅ Luego, detectar nuevas teclas solo si NO está moviéndose
+	if !p.IsMoving {
+		if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
+			p.MoveToUp()
+		} else if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
+			p.MoveToDown()
+		} else if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+			p.MoveToLeft()
+		} else if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+			p.MoveToRight()
+		}
+	}
 
+	p.Tick() // Avanzar animaciones
 }
 
 func (j *Game) Update() error {
@@ -99,7 +106,7 @@ func main() {
 			Assets:         assetsFS,
 			Indexes:        [2]int{0, 9},
 			TemplateString: "assets/nibbit_walking/f_000%d.png",
-			Elapse:         TPS * 0.2,
+			Elapse:         3,
 		},
 	)
 
@@ -114,12 +121,12 @@ func main() {
 
 	startPosition := NewVector(middleX, middleY)
 
-	jugador.CurrentPosition = startPosition
-	jugador.TargetPosition = startPosition
+	jugador.CurrentPosition = startPosition.Clone()
+	jugador.TargetPosition = startPosition.Clone() // clonamos para evitar escribir la misma direccion de memoria
 	jugador.NodePosition = NewNode(1, 1)
 
 	juego := &Game{
-		Maze:        NewMaze(30, 30),
+		Maze:        NewMaze(50, 50),
 		Dimensiones: &Dimensiones{},
 		Player:      jugador,
 	}

@@ -13,6 +13,10 @@ func NewVector(x, y float64) *Vector {
 	return &Vector{x, y}
 }
 
+func (v *Vector) Clone() *Vector {
+	return &Vector{v.X, v.Y}
+}
+
 func (self *Vector) Add(other *Vector) *Vector {
 	return &Vector{
 		X: self.X + other.X,

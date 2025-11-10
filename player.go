@@ -46,55 +46,55 @@ func (player *Player) validNode(node *Node) bool {
 }
 
 func (player *Player) Moving() {
-	// obtenemos la direccion
-	dir := player.TargetPosition.Sub(player.CurrentPosition)
-	// obtenemos distancia
-	dist := dir.SquaredDistance()
-	// comparamos mientras no segumos moviento hacia el objetivo
-	// las distancia entre ellos se hace menor
-	// hasta el punto_destino que es menor que el los pixeles de movimiento
-	// en ese punto_destino no detenemos
-	if dist > squaredMoveSpeed {
-		// normalizamos para solo aumentar en pasos el avance
-		uni := dir.Normalize()
-		// multiplicamos por le velocidad para conseguir las nuevas coordenadas
-		targetPlus := uni.MultiplyByScalar(moveSpeed)
-		player.CurrentPosition = player.CurrentPosition.Add(targetPlus)
-		// para el garbarge colector
-		targetPlus = nil
-		uni = nil
-		dir = nil
-	} else { // hemos llegado al target, no nos movemos más
-		player.CurrentPosition.X = player.TargetPosition.X
-		player.CurrentPosition.Y = player.TargetPosition.Y
-		player.IsMoving = false
-	}
-}
-
-func (player *Player) Move(yMove, xMove int, direction Direction) {
-
-	if player.IsMoving {
-		player.Moving()
+	if !player.IsMoving {
 		return
 	}
 
-	player.IsMoving = true
-	player.CurrentDirection = direction
-	// clonamos el punto para hacer el calculo Y validar si es un movmiento valido dentor del mapa
-	targetNode := player.NodePosition.Clone()
+	// Obtenemos la dirección
+	dir := player.TargetPosition.Sub(player.CurrentPosition)
+	// Obtenemos distancia al cuadrado
+	dist := dir.SquaredDistance()
 
+	// Si hemos llegado al destino
+	// implica que la distancia entre ellos infima
+	if dist <= squaredMoveSpeed {
+		player.CurrentPosition.X = player.TargetPosition.X
+		player.CurrentPosition.Y = player.TargetPosition.Y
+		player.IsMoving = false
+		return
+	}
+
+	// Normalizamos para obtener la dirección unitaria
+	uni := dir.Normalize()
+	// Multiplicamos por la velocidad
+	movePlus := uni.MultiplyByScalar(moveSpeed)
+
+	// ✅ ACTUALIZAR directamente las coordenadas, no crear nuevo vector
+	player.CurrentPosition.X += movePlus.X
+	player.CurrentPosition.Y += movePlus.Y
+}
+
+func (player *Player) Move(yMove, xMove int, direction Direction) {
+	// ✅ Si ya está moviéndose, no hacer nada
+	if player.IsMoving {
+		return
+	}
+
+	// Clonamos el nodo para validar
+	targetNode := player.NodePosition.Clone()
 	targetNode.Y += yMove
 	targetNode.X += xMove
 
+	// ✅ Solo cambiar IsMoving si el movimiento es válido
 	if player.validNode(targetNode) {
-		// calculamos el target el posicion de pixeles
-		tp := player.TargetPosition
-		tp.X = float64(targetNode.X * squareSize)
-		tp.Y = float64(targetNode.Y * squareSize)
+		player.IsMoving = true
+		player.CurrentDirection = direction
+
+		// Actualizar target position
+		player.TargetPosition.X = float64(targetNode.X * squareSize)
+		player.TargetPosition.Y = float64(targetNode.Y * squareSize)
 		player.NodePosition = targetNode
-
 	}
-
 }
 
 func (player *Player) MoveToUp() {

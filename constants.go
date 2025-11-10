@@ -4,7 +4,7 @@ const (
 	Transitable = 0
 
 	squareSize = 15
-	moveSpeed  = 1.2
+	moveSpeed  = 3
 
 	radioSize        = squareSize / 3
 	squaredMoveSpeed = moveSpeed * squareSize
