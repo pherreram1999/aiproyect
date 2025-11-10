@@ -2,41 +2,12 @@ package main
 
 import (
 	"embed"
-	"fmt"
 	"image/color"
-	"math"
-
 	_ "image/png"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
-
-const (
-	Transitable = 0
-
-	squareSize = 15
-	moveSpeed  = 2
-
-	radioSize        = squareSize / 3
-	squaredMoveSpeed = moveSpeed * squareSize
-
-	TPS = 60
-)
-
-type Direccion int
-
-const (
-	DireccionArriba Direccion = iota
-	DireccionDerecha
-	DireccionAbajo
-	DireccionIzquierda
-)
-
-func gradosARadianes(grados float64) float64 {
-	return grados * math.Pi / 180
-}
 
 //go:embed assets
 var assetsFS embed.FS
@@ -48,166 +19,37 @@ type Dimensiones struct {
 	Columnas int
 }
 
-func (self *Punto) Copy(other *Punto) {
-	self.x = other.x
-	self.y = other.y
-}
-
-func (self *Punto) Clone() *Punto {
-	return &Punto{
-		x: self.x,
-		y: self.y,
-	}
-}
-
-type PlayerAnimation struct {
-	WalkingFrames            []*ebiten.Image
-	StayingFrames            []*ebiten.Image
-	IsMoving                 bool
-	CurrentWalkingFrameIndex int
-	CurrentStayingFrameIndex int
-	TickCounter              int
-	TickElapse               int
-	NumWalkingFrames         int
-	NumStayingFrames         int
-}
-
-func (self *PlayerAnimation) GetCurrentFrame() *ebiten.Image {
-	if self.IsMoving {
-		return self.WalkingFrames[self.CurrentWalkingFrameIndex]
-	}
-	return self.StayingFrames[self.CurrentStayingFrameIndex]
-}
-
-type Player struct {
-	position       *Vector
-	targetPosition *Vector
-	punto          *Punto
-	Direccion      Direccion
-	// assets
-	Animation *PlayerAnimation
-}
-
-func (p *Player) obtenerDireccionAngulo() float64 {
-	switch p.Direccion {
-	case DireccionAbajo:
-		return gradosARadianes(0) // 0°
-	case DireccionIzquierda:
-		return gradosARadianes(90) // 90°
-	case DireccionArriba:
-		return gradosARadianes(180) // 180°
-	case DireccionDerecha:
-		return gradosARadianes(270) // 270°
-	}
-	return gradosARadianes(0)
-
-}
-
-type Juego struct {
-	Maze        maze
+type Game struct {
+	Maze        Maze
 	Dimensiones *Dimensiones
 	Player      *Player
 	IsMoving    bool
 }
 
-func (j *Juego) MovePlayer() {
+// MovePlayer se encarga de crear de calcular las frames actuales Y las posiciones vectoriales
+func (j *Game) MovePlayer() {
 	// calculamos el frame del movimeinto basandonos en los ticks
-
-	j.Player.Animation.TickCounter++ // aumentos el tick
-
-	if !j.IsMoving {
-		puntoDestino := j.Player.punto.Clone()
-		if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
-			puntoDestino.y-- // sube un posicion arriba, el index anterior
-			j.IsMoving = true
-			j.Player.Direccion = DireccionArriba
-		} else if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
-			puntoDestino.y++ // baja un posicion, aumenta el indice
-			j.IsMoving = true
-			j.Player.Direccion = DireccionAbajo
-		} else if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-			puntoDestino.x-- // nos vamos a la izquierda
-			j.IsMoving = true
-			j.Player.Direccion = DireccionIzquierda
-		} else if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-			puntoDestino.x++ // nos vamos a la derecha
-			j.IsMoving = true
-			j.Player.Direccion = DireccionDerecha
-		}
-
-		// validamos si los nuevos movimientos estan dentro del mapa
-		if (puntoDestino.y >= 0 && puntoDestino.y < j.Dimensiones.Filas) && (puntoDestino.x >= 0 && puntoDestino.x < j.Dimensiones.Columnas) {
-			// estamos dentro del mapa, vemos si es un movmiento transitable
-			if j.Maze[puntoDestino.y][puntoDestino.x] == 0 { // es transitable
-				// colocamos el destino pero hacia el centro
-				j.Player.targetPosition.x = float64(puntoDestino.x * squareSize)
-				j.Player.targetPosition.y = float64(puntoDestino.y * squareSize)
-				j.Player.punto.Copy(puntoDestino)
-				puntoDestino = nil // para garbage colector
-			}
-		}
-
-		// si no esta movimiento validamos los frames de cuando esta parado
-
-		// validamos el tick del frame para cuando NO se esta movmiendo
-
-		if j.Player.Animation.TickCounter > j.Player.Animation.TickElapse {
-			j.Player.Animation.TickCounter = 0 // se renicia el contador de ticks
-			j.Player.Animation.CurrentStayingFrameIndex++
-			if j.Player.Animation.CurrentStayingFrameIndex >= j.Player.Animation.NumStayingFrames {
-				j.Player.Animation.CurrentStayingFrameIndex = 0
-			}
-		}
-
+	p := j.Player
+	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
+		p.MoveToUp()
+	} else if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
+		p.MoveToDown()
+	} else if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+		p.MoveToLeft()
+	} else if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+		p.MoveToRight()
 	}
 
-	// en cada frame hacemos el calculo del movimiento del vector
-	if j.IsMoving {
+	p.Tick() // para avanzar el contador de las animiacines
 
-		// validamos el tick del frame para cuando se esta movmiento
-		if j.Player.Animation.TickCounter > j.Player.Animation.TickElapse {
-			j.Player.Animation.TickCounter = 0 // se renicia el contador de ticks
-			j.Player.Animation.CurrentWalkingFrameIndex++
-			if j.Player.Animation.CurrentWalkingFrameIndex >= j.Player.Animation.NumWalkingFrames {
-				j.Player.Animation.CurrentWalkingFrameIndex = 0
-			}
-		}
-		// obtenemos la direccion
-		dir := j.Player.targetPosition.Sub(j.Player.position)
-		// obtenemos distancia
-		dist := dir.SquaredDistance()
-		// comparamos mientras no segumos moviento hacia el objetivo
-		// las ditancia entre ellos se hace menor
-		// hasta el punto_destino que es menor que el los pixeles de movimiento
-		// en ese punto_destino no detenemos
-		if dist > squaredMoveSpeed {
-			// normalizamos para solo aumentar en pasos el avance
-			uni := dir.Normalize()
-			// multiplicamos por le velocidad para conseguir las nuevas coordenadas
-			target := uni.MultiplyByScalar(moveSpeed)
-			j.Player.position = j.Player.position.Add(target)
-			// para el garbarge colector
-			target = nil
-			uni = nil
-			dir = nil
-		} else {
-			j.Player.position.x = j.Player.targetPosition.x
-			j.Player.position.y = j.Player.targetPosition.y
-			j.IsMoving = false
-		}
-
-		// para indcarle que animacion debe usar, cuando se mueve o se queda quieto
-		j.Player.Animation.IsMoving = j.IsMoving
-
-	}
 }
 
-func (j *Juego) Update() error {
+func (j *Game) Update() error {
 	j.MovePlayer()
 	return nil
 }
 
-func (j *Juego) DrawMaze(screen *ebiten.Image) {
+func (j *Game) DrawMaze(screen *ebiten.Image) {
 	// dibujamos el laberitno (escenario)
 	for f := 0; f < j.Dimensiones.Filas; f++ {
 		for c := 0; c < j.Dimensiones.Columnas; c++ {
@@ -230,100 +72,62 @@ func (j *Juego) DrawMaze(screen *ebiten.Image) {
 	}
 }
 
-func (j *Juego) Draw(screen *ebiten.Image) {
+func (j *Game) Draw(screen *ebiten.Image) {
 	j.DrawMaze(screen)
 	// dibujamos el jugaodor
 	// lo colocamos en medio de la celda
-	// Obtenemos la posición actual del jugador
-	// Estas coordenadas representan el CENTRO donde queremos dibujar
-	jx := j.Player.position.x
-	jy := j.Player.position.y
-	//
-	//// Creamos las opciones de transformación
-	imgOptions := &ebiten.DrawImageOptions{}
+	j.Player.DrawPlayer(screen)
 
-	playerFrame := j.Player.Animation.GetCurrentFrame()
-	bounds := playerFrame.Bounds()
-	w := float64(bounds.Dx())
-	h := float64(bounds.Dy())
-
-	// Rotar desde el centro de la imagen
-	// se tiene que centrar,para al momento de girar no salga de cuadro
-	imgOptions.GeoM.Translate(-w/2, -h/2) // lo movemos hacia su origen desde el centro
-	imgOptions.GeoM.Rotate(j.Player.obtenerDireccionAngulo())
-	imgOptions.GeoM.Translate(w/2, h/2) // lo regresamos
-
-	imgOptions.GeoM.Translate(
-		jx, // Centramos horizontalmente
-		jy, // Centramos verticalmente
-	)
-	//
-	//// Dibujamos la imagen con todas las transformaciones aplicadas
-	screen.DrawImage(playerFrame, imgOptions)
 }
 
-func (j *Juego) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
+func (j *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return j.Dimensiones.Ancho, j.Dimensiones.Alto
-}
-
-func loadingSpriteSheet(formatPath string, start, end int) []*ebiten.Image {
-	var frames []*ebiten.Image
-	// cargamos los assets de nibit caminanando
-	for i := start; i <= end; i++ {
-		f, err := assetsFS.Open(fmt.Sprintf(formatPath, i))
-		if err != nil {
-			panic(err)
-		}
-		frame, _, err := ebitenutil.NewImageFromReader(f)
-		if err != nil {
-			panic(err)
-		}
-		frames = append(frames, frame)
-	}
-
-	return frames
-}
-
-func loadingWalkingSpriteSheet() []*ebiten.Image {
-	return loadingSpriteSheet("assets/nibbit_walking/f_000%d.png", 0, 9)
-}
-
-func loadingStayingSpriteSheet() []*ebiten.Image {
-	return loadingSpriteSheet("assets/nibbit_staying/fs_%d.png", 0, 11)
 }
 
 func main() {
 
 	// cargamos los assets
-	puntoInicial := &Punto{x: 1, y: 1}
+	puntoInicial := NewNode(1, 1)
 
-	middleX := float64(puntoInicial.x * squareSize)
-	middleY := float64(puntoInicial.y * squareSize)
+	middleX := float64(puntoInicial.X * squareSize)
+	middleY := float64(puntoInicial.Y * squareSize)
 
-	walkingAssets := loadingWalkingSpriteSheet()
-	stayingAssets := loadingStayingSpriteSheet()
+	jugador := NewPlayer()
 
-	// player dimensions
-
-	juego := &Juego{
-		Maze:        CrearLaberintoPrim(60, 35),
-		Dimensiones: &Dimensiones{},
-		Player: &Player{
-			punto:          &Punto{x: 1, y: 1},
-			Direccion:      DireccionAbajo, // es la direccion por defecto de la imagen
-			position:       &Vector{middleX, middleY},
-			targetPosition: &Vector{middleX, middleY},
-			Animation: &PlayerAnimation{
-				WalkingFrames:    walkingAssets,
-				StayingFrames:    stayingAssets,
-				TickElapse:       TPS * 0.2,
-				NumWalkingFrames: len(walkingAssets),
-				NumStayingFrames: len(stayingAssets),
-			},
+	jugador.MovingAnimation = NewAnimation(
+		&AnimationOption{
+			Assets:         assetsFS,
+			Indexes:        [2]int{0, 9},
+			TemplateString: "assets/nibbit_walking/f_000%d.png",
+			Elapse:         TPS * 0.2,
 		},
+	)
+
+	jugador.StayAnimation = NewAnimation(
+		&AnimationOption{
+			Assets:         assetsFS,
+			Indexes:        [2]int{0, 11},
+			TemplateString: "assets/nibbit_staying/fs_%d.png",
+			Elapse:         TPS * 0.2,
+		},
+	)
+
+	startPosition := NewVector(middleX, middleY)
+
+	jugador.CurrentPosition = startPosition
+	jugador.TargetPosition = startPosition
+	jugador.NodePosition = NewNode(1, 1)
+
+	juego := &Game{
+		Maze:        NewMaze(30, 30),
+		Dimensiones: &Dimensiones{},
+		Player:      jugador,
 	}
 
-	f, c := juego.Maze.getShape()
+	// para que el jugador tenga acceso al los datos del juego
+	juego.Player.Game = juego
+
+	f, c := juego.Maze.GetShape()
 
 	juego.Dimensiones.Alto = f * squareSize
 	juego.Dimensiones.Ancho = c * squareSize

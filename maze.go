@@ -6,16 +6,18 @@ import (
 	"time"
 )
 
+type Maze [][]int
+
 // Pos guarda una posición en la matriz del laberinto.
-// Usamos Y (fila) y X (columna) para mantener el mismo orden que en el código Python.
+// Usamos Y (fila) Y X (columna) para mantener el mismo orden que en el código Python.
 type Pos struct {
 	Y int // fila (coordenada vertical)
 	X int // columna (coordenada horizontal)
 }
 
-// CrearLaberintoPrim genera un laberinto usando una variante del algoritmo de Prim.
-// Devuelve una matriz [][]int donde 1 = muro y 0 = pasillo.
-func CrearLaberintoPrim(ancho, alto int) [][]int {
+// NewVector genera un laberinto usando una variante del algoritmo de Prim.
+// Devuelve una matriz [][]int donde 1 = muro Y 0 = pasillo.
+func NewMaze(ancho, alto int) Maze {
 	// Si el ancho es par, lo incrementamos para que sea impar (bordes claros).
 	if ancho%2 == 0 {
 		ancho++
@@ -41,7 +43,7 @@ func CrearLaberintoPrim(ancho, alto int) [][]int {
 	rand.Seed(time.Now().UnixNano())
 
 	// Elegimos un punto inicial aleatorio con coordenadas impares:
-	// rand.Intn(ancho/2) devuelve un valor en [0, ancho/2), lo multiplicamos por 2 y sumamos 1 => {1,3,5,...}
+	// rand.Intn(ancho/2) devuelve un valor en [0, ancho/2), lo multiplicamos por 2 Y sumamos 1 => {1,3,5,...}
 	inicioX := rand.Intn(ancho/2)*2 + 1
 	inicioY := rand.Intn(alto/2)*2 + 1
 
@@ -60,7 +62,7 @@ func CrearLaberintoPrim(ancho, alto int) [][]int {
 	}
 
 	// Añadimos los muros vecinos (adyacentes) de la celda inicial a la lista de muros.
-	// Recorremos cada dirección y calculamos la posición vecina.
+	// Recorremos cada dirección Y calculamos la posición vecina.
 	for _, d := range dirs {
 		y := inicioY + d.Y // fila vecina
 		x := inicioX + d.X // columna vecina
@@ -73,14 +75,14 @@ func CrearLaberintoPrim(ancho, alto int) [][]int {
 
 	// Bucle principal: procesamos mientras haya muros en la lista.
 	for len(muros) > 0 {
-		// Elegimos un índice aleatorio entre 0 y len(muros)-1.
+		// Elegimos un índice aleatorio entre 0 Y len(muros)-1.
 		i := rand.Intn(len(muros))
 		// Obtenemos el muro seleccionado.
 		muro := muros[i]
 		muroY, muroX := muro.Y, muro.X
 
 		// Eliminamos el muro seleccionado de la slice (mantenemos el orden no importantísimo).
-		// Lo hacemos concatenando la parte izquierda y la parte derecha sin el elemento i.
+		// Lo hacemos concatenando la parte izquierda Y la parte derecha sin el elemento i.
 		muros = append(muros[:i], muros[i+1:]...)
 
 		// Determinamos las dos celdas opuestas separadas por este muro.
@@ -100,7 +102,7 @@ func CrearLaberintoPrim(ancho, alto int) [][]int {
 			celda2 = Pos{Y: muroY, X: muroX + 1} // celda derecha del muro
 		}
 
-		// Verificamos límites: si alguna de las celdas está fuera, el muro toca el borde exterior y lo ignoramos.
+		// Verificamos límites: si alguna de las celdas está fuera, el muro toca el borde exterior Y lo ignoramos.
 		if celda1.Y < 0 || celda1.X < 0 || celda2.Y < 0 || celda2.X < 0 ||
 			celda1.Y >= alto || celda1.X >= ancho || celda2.Y >= alto || celda2.X >= ancho {
 			continue // pasa a la siguiente iteración
@@ -133,7 +135,7 @@ func CrearLaberintoPrim(ancho, alto int) [][]int {
 				ny := nueva.Y + d.Y // fila del vecino
 				nx := nueva.X + d.X // columna del vecino
 
-				// Verificamos que el vecino esté dentro de los límites y que sea un muro.
+				// Verificamos que el vecino esté dentro de los límites Y que sea un muro.
 				if ny >= 0 && ny < alto && nx >= 0 && nx < ancho && laberinto[ny][nx] == 1 {
 					// Evitamos añadir duplicados: comprobamos si ya está en la lista 'muros'.
 					duplicado := false
@@ -153,7 +155,7 @@ func CrearLaberintoPrim(ancho, alto int) [][]int {
 		// Si ambas celdas ya son pasillo o ambas son muro, no hacemos nada (no conectamos).
 	}
 
-	// Devolvemos la matriz completa con muros y pasillos.
+	// Devolvemos la matriz completa con muros Y pasillos.
 	return laberinto
 }
 
@@ -174,4 +176,13 @@ func ImprimirLaberinto(laberinto [][]int) {
 		// Saltamos de línea después de cada fila.
 		fmt.Println()
 	}
+}
+
+func (m Maze) GetShape() (int, int) {
+	filas := len(m)
+	cols := 0
+	if filas > 0 {
+		cols = len(m[0])
+	}
+	return filas, cols
 }

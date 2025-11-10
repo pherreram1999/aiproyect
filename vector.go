@@ -6,25 +6,29 @@ import (
 )
 
 type Vector struct {
-	x, y float64
+	X, Y float64
+}
+
+func NewVector(x, y float64) *Vector {
+	return &Vector{x, y}
 }
 
 func (self *Vector) Add(other *Vector) *Vector {
 	return &Vector{
-		x: self.x + other.x,
-		y: self.y + other.y,
+		X: self.X + other.X,
+		Y: self.Y + other.Y,
 	}
 }
 
 func (self *Vector) Sub(other *Vector) *Vector {
 	return &Vector{
-		x: self.x - other.x,
-		y: self.y - other.y,
+		X: self.X - other.X,
+		Y: self.Y - other.Y,
 	}
 }
 
 func (self *Vector) SquaredDistance() float64 {
-	return self.x*self.x + self.y*self.y
+	return self.X*self.X + self.Y*self.Y
 }
 
 func (self *Vector) Distance() float64 {
@@ -34,18 +38,18 @@ func (self *Vector) Distance() float64 {
 func (self *Vector) Normalize() *Vector {
 	mod := self.Distance()
 	return &Vector{
-		x: self.x / mod,
-		y: self.y / mod,
+		X: self.X / mod,
+		Y: self.Y / mod,
 	}
 }
 
 func (self *Vector) MultiplyByScalar(scalar float64) *Vector {
 	return &Vector{
-		x: self.x * scalar,
-		y: self.y * scalar,
+		X: self.X * scalar,
+		Y: self.Y * scalar,
 	}
 }
 
 func (self *Vector) String() string {
-	return fmt.Sprintf("(%f.2,%f.2)", self.x, self.y)
+	return fmt.Sprintf("(%f.2,%f.2)", self.X, self.Y)
 }
