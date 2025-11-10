@@ -44,6 +44,8 @@ func NewAnimation(options *AnimationOption) *Animation {
 			log.Fatal(err)
 		}
 
+		frame = ScaleFrame(frame, squareSize, squareSize)
+
 		a.Frames = append(a.Frames, frame)
 	}
 
