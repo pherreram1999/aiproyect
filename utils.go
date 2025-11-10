@@ -1,6 +1,12 @@
 package main
 
-import "github.com/hajimehoshi/ebiten/v2"
+import (
+	"embed"
+	"log"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+)
 
 // ScaleFrame escala una imagen a un tamaño específico
 func ScaleFrame(originalFrame *ebiten.Image, targetWidth, targetHeight int) *ebiten.Image {
@@ -19,4 +25,18 @@ func ScaleFrame(originalFrame *ebiten.Image, targetWidth, targetHeight int) *ebi
 	scaledFrame.DrawImage(originalFrame, op)
 
 	return scaledFrame
+}
+
+func openAsset(assets embed.FS, assetName string) *ebiten.Image {
+	f, err := assets.Open(assetName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	frame, _, err := ebitenutil.NewImageFromReader(f)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return ScaleFrame(frame, squareSize, squareSize)
 }

@@ -2,11 +2,9 @@ package main
 
 import (
 	"embed"
-	"image/color"
 	_ "image/png"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 //go:embed assets
@@ -19,11 +17,17 @@ type Dimensiones struct {
 	Columnas int
 }
 
+type MazeAssets struct {
+	Wall  *ebiten.Image
+	Floor *ebiten.Image
+}
+
 type Game struct {
 	Maze        Maze
 	Dimensiones *Dimensiones
 	Player      *Player
 	IsMoving    bool
+	MazeAssets  *MazeAssets
 }
 
 // MovePlayer se encarga de crear de calcular las frames actuales Y las posiciones vectoriales
@@ -60,20 +64,25 @@ func (j *Game) DrawMaze(screen *ebiten.Image) {
 	// dibujamos el laberitno (escenario)
 	for f := 0; f < j.Dimensiones.Filas; f++ {
 		for c := 0; c < j.Dimensiones.Columnas; c++ {
-			y := float32(f * squareSize)
-			x := float32(c * squareSize)
+			y := float64(f * squareSize)
+			x := float64(c * squareSize)
 
-			var colorCelda color.Color
+			var mazeAsset *ebiten.Image
 			// Si el valor en el mapa es 1, es una pared
 			if j.Maze[f][c] == 1 {
 				// Pared - pintamos de gris oscuro
-				colorCelda = color.RGBA{60, 60, 60, 255}
+				mazeAsset = j.MazeAssets.Wall
 			} else {
 				// Camino - pintamos de gris claro
-				colorCelda = color.RGBA{200, 200, 200, 255}
+				mazeAsset = j.MazeAssets.Floor
 			}
 
-			vector.FillRect(screen, x, y, squareSize, squareSize, colorCelda, false)
+			imgOptions := &ebiten.DrawImageOptions{}
+			// vector.FillRect(screen, x, y, squareSize, squareSize, colorCelda, false)
+
+			imgOptions.GeoM.Translate(x, y)
+
+			screen.DrawImage(mazeAsset, imgOptions)
 
 		}
 	}
@@ -126,9 +135,13 @@ func main() {
 	jugador.NodePosition = NewNode(1, 1)
 
 	juego := &Game{
-		Maze:        NewMaze(50, 50),
+		Maze:        NewMaze(60, 40),
 		Dimensiones: &Dimensiones{},
 		Player:      jugador,
+		MazeAssets: &MazeAssets{
+			Floor: openAsset(assetsFS, "assets/floor.png"),
+			Wall:  openAsset(assetsFS, "assets/wall.png"),
+		},
 	}
 
 	// para que el jugador tenga acceso al los datos del juego
