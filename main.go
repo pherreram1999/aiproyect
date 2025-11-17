@@ -166,10 +166,10 @@ func main() {
 
 	juego.Enemy = &Enemy{
 		NodePosition: NewNode(c-2, f-2), // columnas, filas, se considera que n-1 menos el los muros
-		Elapse:       10,                // cada cierto ciclos va recalcular la ruta al enemigo
+		Elapse:       moveSpeed,         // cada cierto ciclos va recalcular la ruta al enemigo
 	}
 
-	juego.Enemy.VectorPosition = NewVector(
+	juego.Enemy.VectorCurrentPosition = NewVector(
 		float64(juego.Enemy.NodePosition.X*squareSize),
 		float64(juego.Enemy.NodePosition.Y*squareSize),
 	)
