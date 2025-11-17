@@ -79,6 +79,9 @@ func (e *Enemy) Tick() {
 				e.NodePosition = e.GetCurrentPathNode()
 			}
 			e.UpdateVectorTargetPosition()
+
+			// tenemos que revisar la direccion a la mira
+
 		}
 	}
 
