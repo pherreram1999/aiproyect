@@ -56,8 +56,14 @@ func (j *Game) MovePlayer() {
 	p.Tick() // Avanzar animaciones
 }
 
+func (j *Game) MoveEnemy() {
+	e := j.Enemy
+	e.Tick() // avanzar animaciones del enemigo
+}
+
 func (j *Game) Update() error {
 	j.MovePlayer()
+	j.MoveEnemy()
 	return nil
 }
 
@@ -84,7 +90,6 @@ func (j *Game) DrawMaze(screen *ebiten.Image) {
 			imgOptions.GeoM.Translate(x, y)
 
 			screen.DrawImage(mazeAsset, imgOptions)
-
 		}
 	}
 }
@@ -94,6 +99,8 @@ func (j *Game) Draw(screen *ebiten.Image) {
 	// dibujamos el jugaodor
 	// lo colocamos en medio de la celda
 	j.Player.DrawPlayer(screen)
+
+	j.Enemy.Draw(screen)
 
 }
 
@@ -158,10 +165,26 @@ func main() {
 	// cargamos al enemigo
 
 	juego.Enemy = &Enemy{
-		NodePosition: NewNode(c-1, f-1), // columnas, filas
+		NodePosition: NewNode(c-2, f-2), // columnas, filas, se considera que n-1 menos el los muros
+		Elapse:       TPS / 2,           // cada cierto ciclos va recalcular la ruta al enemigo
 	}
 
+	juego.Enemy.VectorPosition = NewVector(
+		float64(juego.Enemy.NodePosition.X*squareSize),
+		float64(juego.Enemy.NodePosition.Y*squareSize),
+	)
+
 	juego.Enemy.Juego = juego
+
+	juego.Enemy.Animation = NewAnimation(&AnimationOption{
+		Assets:         assetsFS,
+		Indexes:        [2]int{0, 11},
+		TemplateString: "assets/dog/f_%d.png",
+		Elapse:         TPS * 0.2,
+	})
+
+	// iniciamos el calculo inicial del enemigo
+	juego.Enemy.CalculatePath()
 
 	ebiten.SetWindowSize(juego.Dimensiones.Ancho, juego.Dimensiones.Alto)
 	ebiten.SetWindowTitle("Catch me!")
