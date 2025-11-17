@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"slices"
+)
+
 // Node representa un cordenada en la mapa
 // almacena valores necesarios para calcular movimientos
 type Node struct {
@@ -17,7 +22,18 @@ func NewNode(x, y int) *Node {
 	}
 }
 
-func (n *Node) BuildWay() {
+func (n *Node) BuildWay() []*Node {
+	var camino []*Node
+
+	nodoFinal := n
+	for nodoFinal != nil {
+		camino = append(camino, nodoFinal)
+		nodoFinal = nodoFinal.parent
+	}
+
+	slices.Reverse(camino)
+
+	return camino
 
 }
 
@@ -31,4 +47,8 @@ func (n *Node) Clone() *Node {
 		X: n.X,
 		Y: n.Y,
 	}
+}
+
+func (n *Node) String() string {
+	return fmt.Sprintf("(x: %v,Y: %v,f: %v)", n.X, n.Y, n.f)
 }

@@ -28,6 +28,7 @@ type Game struct {
 	Player      *Player
 	IsMoving    bool
 	MazeAssets  *MazeAssets
+	Enemy       *Enemy
 }
 
 // MovePlayer se encarga de crear de calcular las frames actuales Y las posiciones vectoriales
@@ -135,7 +136,7 @@ func main() {
 	jugador.NodePosition = NewNode(1, 1)
 
 	juego := &Game{
-		Maze:        NewMaze(60, 40),
+		Maze:        NewMaze(60, 35),
 		Dimensiones: &Dimensiones{},
 		Player:      jugador,
 		MazeAssets: &MazeAssets{
@@ -153,6 +154,14 @@ func main() {
 	juego.Dimensiones.Ancho = c * squareSize
 	juego.Dimensiones.Filas = f
 	juego.Dimensiones.Columnas = c
+
+	// cargamos al enemigo
+
+	juego.Enemy = &Enemy{
+		NodePosition: NewNode(c-1, f-1), // columnas, filas
+	}
+
+	juego.Enemy.Juego = juego
 
 	ebiten.SetWindowSize(juego.Dimensiones.Ancho, juego.Dimensiones.Alto)
 	ebiten.SetWindowTitle("Catch me!")
