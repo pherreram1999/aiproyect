@@ -166,7 +166,7 @@ func main() {
 
 	juego.Enemy = &Enemy{
 		NodePosition: NewNode(c-2, f-2), // columnas, filas, se considera que n-1 menos el los muros
-		Elapse:       TPS / 2,           // cada cierto ciclos va recalcular la ruta al enemigo
+		Elapse:       10,                // cada cierto ciclos va recalcular la ruta al enemigo
 	}
 
 	juego.Enemy.VectorPosition = NewVector(

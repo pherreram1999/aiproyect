@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -15,10 +16,16 @@ type Enemy struct {
 	Juego          *Game
 	PathIndex      int
 	Path           []*Node
+	IsMoving       bool
 }
 
 // CalculatePath actualiza el path hacia el jugador
 func (e *Enemy) CalculatePath() {
+	// tenemos que liberar todos las referencias de memoria en camino previo
+	for _, c := range e.Path {
+		c.parent = nil
+	}
+
 	maze := e.Juego.Maze
 	meta := e.Juego.Player.NodePosition
 	nodoMeta := AStart(maze, e.NodePosition, meta)
@@ -55,21 +62,24 @@ func (e *Enemy) Tick() {
 
 	if e.TickCounter > e.Elapse {
 		// si se pasa, avanzamos un cuadrando al camino
-		if e.PathIndex < len(e.Path)-1 {
-			e.PathIndex++ // avanzamos un lugar en la ruta
-		} else {
-			// ha este punto se llega final de la ruta,
-			// ahora el punto final
-			e.NodePosition = e.Path[e.PathIndex]
-			e.PathIndex = 0 // reniciamos el contador del path
-			e.CalculatePath()
-		}
+		e.PathIndex++ // avanzamos un lugar en la ruta
 		e.TickCounter = 0
 
-		// actualizamos su posicion actual
-		e.NodePosition = e.GetCurrentPathNode()
-		// recalculamos los vectores
-		e.UpdateVectorPosition() // en base a la nueva posicion actualizada
+		if e.PathIndex >= len(e.Path) {
+			// ha este punto se llega final de la ruta,
+			// ahora el punto final
+			e.NodePosition = e.Path[e.PathIndex-1] // considerar que se rebaso el numero de nodos
+			e.PathIndex = 0                        // reniciamos el contador del path
+			e.CalculatePath()
+			length := len(e.Path)
+			fmt.Println(length)
+		} else {
+			// actualizamos su posicion actual
+			e.NodePosition = e.GetCurrentPathNode()
+		}
 	}
+
+	// recalculamos los vectores
+	e.UpdateVectorPosition() // en base a la nueva posicion actualizada
 
 }
