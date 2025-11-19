@@ -135,6 +135,11 @@ func (j *Game) Update() error {
 			// indicamos que tenemos que acabar el juego
 
 		}
+
+		// validamos si ya tiene todos lo puntos recoltados
+
+		if j.Player.Points == MaxAjolotePoints {
+		}
 	}
 
 	return nil
@@ -216,7 +221,7 @@ func main() {
 	jugador.TargetPosition = startPosition.Clone() // clonamos para evitar escribir la misma direccion de memoria
 	jugador.NodePosition = NewNode(1, 1)
 
-	mapa := NewMaze(60, 35)
+	mapa := NewMaze(Columnas, Filas)
 
 	Mazerand(mapa)
 

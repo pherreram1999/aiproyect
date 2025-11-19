@@ -7,6 +7,10 @@ const (
 
 	AjolotePointValue = 50
 
+	Filas = 10
+
+	Columnas = 10
+
 	FontSize = 10
 
 	AjoloteElapse = 12
@@ -19,5 +23,7 @@ const (
 
 	EnemyElapse = TPS
 
-	MaxRand = 100
+	NumAjolotes = 5
+
+	MaxAjolotePoints = NumAjolotes * AjolotePointValue
 )

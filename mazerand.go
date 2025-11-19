@@ -7,7 +7,7 @@ func Mazerand(mapa Maze) {
 
 	f, c := mapa.GetShape()
 
-	for counter < MaxRand {
+	for counter < NumAjolotes {
 		// generamos un punto aleatorio
 		x := rand.IntN(c)
 		y := rand.IntN(f)
