@@ -22,6 +22,10 @@ func NewNode(x, y int) *Node {
 	}
 }
 
+func (n *Node) Equal(other *Node) bool {
+	return n.X == other.X && n.Y == other.Y
+}
+
 func (n *Node) BuildWay() []*Node {
 	var camino []*Node
 

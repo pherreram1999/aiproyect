@@ -7,6 +7,13 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+type State int
+
+const (
+	PlayingState State = iota
+	GameOverState
+)
+
 //go:embed assets
 var assetsFS embed.FS
 
@@ -18,8 +25,9 @@ type Dimensiones struct {
 }
 
 type MazeAssets struct {
-	Wall  *ebiten.Image
-	Floor *ebiten.Image
+	Wall             *ebiten.Image
+	Floor            *ebiten.Image
+	AjoloteAnimation *Animation
 }
 
 type Game struct {
@@ -29,18 +37,19 @@ type Game struct {
 	IsMoving    bool
 	MazeAssets  *MazeAssets
 	Enemy       *Enemy
+	State       State
 }
 
 // MovePlayer se encarga de crear de calcular las frames actuales Y las posiciones vectoriales
 func (j *Game) MovePlayer() {
 	p := j.Player
 
-	// ✅ Primero, continuar movimiento en progreso
+	// continuar movimiento en progreso
 	if p.IsMoving {
 		p.Moving()
 	}
 
-	// ✅ Luego, detectar nuevas teclas solo si NO está moviéndose
+	// detectar nuevas teclas solo si NO está moviéndose
 	if !p.IsMoving {
 		if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
 			p.MoveToUp()
@@ -61,14 +70,27 @@ func (j *Game) MoveEnemy() {
 	e.Tick() // avanzar animaciones del enemigo
 }
 
+func GameOver() {
+
+}
+
 func (j *Game) Update() error {
-	j.MovePlayer()
-	j.MoveEnemy()
+	if j.State == PlayingState {
+		j.MovePlayer()
+		j.MoveEnemy()
+		// validamos si tanto el enemigo como el jugador llegaron a colisionar si estan en
+		// en el mismo punto (nodo)
+
+		if j.Enemy.NodePosition.Equal(j.Player.NodePosition) {
+			// indicamos que tenemos que acabar el juego
+
+		}
+	}
+
 	return nil
 }
 
 func (j *Game) DrawMaze(screen *ebiten.Image) {
-	// dibujamos el laberitno (escenario)
 	for f := 0; f < j.Dimensiones.Filas; f++ {
 		for c := 0; c < j.Dimensiones.Columnas; c++ {
 			y := float64(f * squareSize)
@@ -76,12 +98,13 @@ func (j *Game) DrawMaze(screen *ebiten.Image) {
 
 			var mazeAsset *ebiten.Image
 			// Si el valor en el mapa es 1, es una pared
-			if j.Maze[f][c] == 1 {
-				// Pared - pintamos de gris oscuro
+			celda := j.Maze[f][c]
+			if celda == 1 {
 				mazeAsset = j.MazeAssets.Wall
-			} else {
-				// Camino - pintamos de gris claro
+			} else if celda == 0 {
 				mazeAsset = j.MazeAssets.Floor
+			} else if celda == AjolotePoint {
+				mazeAsset = j.MazeAssets.AjoloteAnimation.GetFrame()
 			}
 
 			imgOptions := &ebiten.DrawImageOptions{}
@@ -89,19 +112,30 @@ func (j *Game) DrawMaze(screen *ebiten.Image) {
 
 			imgOptions.GeoM.Translate(x, y)
 
+			// en caso de que sea un ajolote point, lo tenemos que mezclar un tectura de camino
+
+			if celda == AjolotePoint {
+				screen.DrawImage(j.MazeAssets.Floor, imgOptions)
+			}
+
 			screen.DrawImage(mazeAsset, imgOptions)
 		}
 	}
 }
 
 func (j *Game) Draw(screen *ebiten.Image) {
-	j.DrawMaze(screen)
-	// dibujamos el jugaodor
-	// lo colocamos en medio de la celda
-	j.Player.DrawPlayer(screen)
 
-	j.Enemy.Draw(screen)
+	if j.State == PlayingState {
+		j.DrawMaze(screen)
+		// dibujamos el jugaodor
+		// lo colocamos en medio de la celda
+		j.Player.DrawPlayer(screen)
 
+		j.Enemy.Draw(screen)
+
+		// animacion para los ajolote poins
+		j.MazeAssets.AjoloteAnimation.Tick()
+	}
 }
 
 func (j *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -142,14 +176,19 @@ func main() {
 	jugador.TargetPosition = startPosition.Clone() // clonamos para evitar escribir la misma direccion de memoria
 	jugador.NodePosition = NewNode(1, 1)
 
+	mapa := NewMaze(60, 35)
+
+	Mazerand(mapa)
+
 	juego := &Game{
-		Maze:        NewMaze(60, 35),
+		Maze:        mapa,
 		Dimensiones: &Dimensiones{},
 		Player:      jugador,
 		MazeAssets: &MazeAssets{
 			Floor: openAsset(assetsFS, "assets/floor.png"),
 			Wall:  openAsset(assetsFS, "assets/wall.png"),
 		},
+		State: PlayingState,
 	}
 
 	// para que el jugador tenga acceso al los datos del juego
@@ -166,7 +205,7 @@ func main() {
 
 	juego.Enemy = &Enemy{
 		NodePosition: NewNode(c-2, f-2), // columnas, filas, se considera que n-1 menos el los muros
-		Elapse:       moveSpeed,         // cada cierto ciclos va recalcular la ruta al enemigo
+		Elapse:       EnemyElapse,       // cada cierto ciclos va recalcular la ruta al enemigo
 	}
 
 	juego.Enemy.VectorCurrentPosition = NewVector(
@@ -180,7 +219,16 @@ func main() {
 		Assets:         assetsFS,
 		Indexes:        [2]int{0, 11},
 		TemplateString: "assets/dog/f_%d.png",
-		Elapse:         TPS * 0.2,
+		Elapse:         TPS * .25,
+	})
+
+	// cargamos la animacion de ajolote pesos
+
+	juego.MazeAssets.AjoloteAnimation = NewAnimation(&AnimationOption{
+		Assets:         assetsFS,
+		Indexes:        [2]int{1, 12},
+		TemplateString: "assets/ajolote/f%d.png",
+		Elapse:         AjoloteElapse,
 	})
 
 	// iniciamos el calculo inicial del enemigo

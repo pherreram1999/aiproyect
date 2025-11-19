@@ -42,7 +42,10 @@ func NewPlayer() *Player {
 func (player *Player) validNode(node *Node) bool {
 	mapa := player.Game.Maze
 	f, c := player.Game.Dimensiones.Filas, player.Game.Dimensiones.Columnas
-	return (node.Y > 0 && node.Y < f) && (node.X > 0 && node.X < c) && mapa[node.Y][node.X] == 0
+	return (node.Y > 0 && node.Y < f) &&
+		(node.X > 0 && node.X < c) &&
+		// considerar los ajolotes pesos
+		(mapa[node.Y][node.X] == Transitable || mapa[node.Y][node.X] == AjolotePoint)
 }
 
 func (player *Player) Moving() {
@@ -69,13 +72,13 @@ func (player *Player) Moving() {
 	// Multiplicamos por la velocidad
 	movePlus := uni.MultiplyByScalar(moveSpeed)
 
-	// ✅ ACTUALIZAR directamente las coordenadas, no crear nuevo vector
+	// ACTUALIZAR directamente las coordenadas, no crear nuevo vector
 	player.CurrentPosition.X += movePlus.X
 	player.CurrentPosition.Y += movePlus.Y
 }
 
 func (player *Player) Move(yMove, xMove int, direction Direction) {
-	// ✅ Si ya está moviéndose, no hacer nada
+	// Si ya está moviéndose, no hacer nada
 	if player.IsMoving {
 		return
 	}
@@ -85,7 +88,7 @@ func (player *Player) Move(yMove, xMove int, direction Direction) {
 	targetNode.Y += yMove
 	targetNode.X += xMove
 
-	// ✅ Solo cambiar IsMoving si el movimiento es válido
+	// Solo cambiar IsMoving si el movimiento es válido
 	if player.validNode(targetNode) {
 		player.IsMoving = true
 		player.CurrentDirection = direction
