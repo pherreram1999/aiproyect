@@ -2,9 +2,13 @@ package main
 
 import (
 	"embed"
+	"fmt"
+	"image/color"
 	_ "image/png"
+	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
 type State int
@@ -30,6 +34,10 @@ type MazeAssets struct {
 	AjoloteAnimation *Animation
 }
 
+type Font struct {
+	Face    *text.GoTextFace
+	Options *text.DrawOptions
+}
 type Game struct {
 	Maze        Maze
 	Dimensiones *Dimensiones
@@ -38,6 +46,7 @@ type Game struct {
 	MazeAssets  *MazeAssets
 	Enemy       *Enemy
 	State       State
+	Font        *Font
 }
 
 // MovePlayer se encarga de crear de calcular las frames actuales Y las posiciones vectoriales
@@ -63,6 +72,14 @@ func (j *Game) MovePlayer() {
 	}
 
 	p.Tick() // Avanzar animaciones
+
+	// tenemos que validar si el nodo si encuentra es un ajolote punto
+
+	if j.Maze.Get(j.Player.NodePosition.X, j.Player.NodePosition.Y) == AjolotePointType {
+		p.Points += AjolotePointValue
+
+		j.Maze.Set(j.Player.NodePosition.X, j.Player.NodePosition.Y, Transitable) // indicamos que ya solo es camino
+	}
 }
 
 func (j *Game) MoveEnemy() {
@@ -72,6 +89,39 @@ func (j *Game) MoveEnemy() {
 
 func GameOver() {
 
+}
+
+func (j *Game) DrawMaze(screen *ebiten.Image) {
+	for f := 0; f < j.Dimensiones.Filas; f++ {
+		for c := 0; c < j.Dimensiones.Columnas; c++ {
+			y := float64(f * squareSize)
+			x := float64(c * squareSize)
+
+			var mazeAsset *ebiten.Image
+			// Si el valor en el mapa es 1, es una pared
+			celda := j.Maze[f][c]
+			if celda == 1 {
+				mazeAsset = j.MazeAssets.Wall
+			} else if celda == 0 {
+				mazeAsset = j.MazeAssets.Floor
+			} else if celda == AjolotePointType {
+				mazeAsset = j.MazeAssets.AjoloteAnimation.GetFrame()
+			}
+
+			imgOptions := &ebiten.DrawImageOptions{}
+			// vector.FillRect(screen, x, y, squareSize, squareSize, colorCelda, false)
+
+			imgOptions.GeoM.Translate(x, y)
+
+			// en caso de que sea un ajolote point, lo tenemos que mezclar un tectura de camino
+
+			if celda == AjolotePointType {
+				screen.DrawImage(j.MazeAssets.Floor, imgOptions)
+			}
+
+			screen.DrawImage(mazeAsset, imgOptions)
+		}
+	}
 }
 
 func (j *Game) Update() error {
@@ -90,39 +140,6 @@ func (j *Game) Update() error {
 	return nil
 }
 
-func (j *Game) DrawMaze(screen *ebiten.Image) {
-	for f := 0; f < j.Dimensiones.Filas; f++ {
-		for c := 0; c < j.Dimensiones.Columnas; c++ {
-			y := float64(f * squareSize)
-			x := float64(c * squareSize)
-
-			var mazeAsset *ebiten.Image
-			// Si el valor en el mapa es 1, es una pared
-			celda := j.Maze[f][c]
-			if celda == 1 {
-				mazeAsset = j.MazeAssets.Wall
-			} else if celda == 0 {
-				mazeAsset = j.MazeAssets.Floor
-			} else if celda == AjolotePoint {
-				mazeAsset = j.MazeAssets.AjoloteAnimation.GetFrame()
-			}
-
-			imgOptions := &ebiten.DrawImageOptions{}
-			// vector.FillRect(screen, x, y, squareSize, squareSize, colorCelda, false)
-
-			imgOptions.GeoM.Translate(x, y)
-
-			// en caso de que sea un ajolote point, lo tenemos que mezclar un tectura de camino
-
-			if celda == AjolotePoint {
-				screen.DrawImage(j.MazeAssets.Floor, imgOptions)
-			}
-
-			screen.DrawImage(mazeAsset, imgOptions)
-		}
-	}
-}
-
 func (j *Game) Draw(screen *ebiten.Image) {
 
 	if j.State == PlayingState {
@@ -135,6 +152,9 @@ func (j *Game) Draw(screen *ebiten.Image) {
 
 		// animacion para los ajolote poins
 		j.MazeAssets.AjoloteAnimation.Tick()
+
+		// dibujamos le puntaje
+		text.Draw(screen, fmt.Sprintf("puntos %d", j.Player.Points), j.Font.Face, j.Font.Options)
 	}
 }
 
@@ -143,7 +163,27 @@ func (j *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func main() {
+	// cargamos la fuente
+	fontFile, err := assetsFS.Open("assets/font.ttf")
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	fontSource, err := text.NewGoTextFaceSource(fontFile)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	font := &Font{
+		Face: &text.GoTextFace{
+			Source: fontSource,
+			Size:   FontSize,
+		},
+		Options: &text.DrawOptions{},
+	}
+
+	font.Options.ColorScale.ScaleWithColor(color.RGBA{R: 0, G: 255, B: 0, A: 255})
 	// cargamos los assets
 	puntoInicial := NewNode(1, 1)
 
@@ -184,6 +224,7 @@ func main() {
 		Maze:        mapa,
 		Dimensiones: &Dimensiones{},
 		Player:      jugador,
+		Font:        font,
 		MazeAssets: &MazeAssets{
 			Floor: openAsset(assetsFS, "assets/floor.png"),
 			Wall:  openAsset(assetsFS, "assets/wall.png"),

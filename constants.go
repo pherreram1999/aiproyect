@@ -3,7 +3,11 @@ package main
 const (
 	Transitable = 0
 
-	AjolotePoint = 3
+	AjolotePointType = 3
+
+	AjolotePointValue = 50
+
+	FontSize = 10
 
 	AjoloteElapse = 12
 	squareSize    = 20

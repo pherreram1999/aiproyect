@@ -23,6 +23,7 @@ type Player struct {
 	TargetPosition   *Vector
 	NodePosition     *Node
 	CurrentDirection Direction
+	Points           uint
 	// valores para validar movimientos en el mapa
 	Mapa Maze
 	// apuntamos al padre
@@ -45,7 +46,7 @@ func (player *Player) validNode(node *Node) bool {
 	return (node.Y > 0 && node.Y < f) &&
 		(node.X > 0 && node.X < c) &&
 		// considerar los ajolotes pesos
-		(mapa[node.Y][node.X] == Transitable || mapa[node.Y][node.X] == AjolotePoint)
+		(mapa[node.Y][node.X] == Transitable || mapa[node.Y][node.X] == AjolotePointType)
 }
 
 func (player *Player) Moving() {

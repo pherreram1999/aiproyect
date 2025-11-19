@@ -76,7 +76,7 @@ func AStart(laberinto Maze, start_point, goal *Node) *Node {
 				vecino.Y < f &&
 				listaCerrada[vecino.Y][vecino.X] == 0 &&
 				// debemos considera los ajolote points como transitables
-				(laberinto[vecino.Y][vecino.X] == Transitable || laberinto[vecino.Y][vecino.X] == AjolotePoint) {
+				(laberinto[vecino.Y][vecino.X] == Transitable || laberinto[vecino.Y][vecino.X] == AjolotePointType) {
 				// validamos si es un movimiento diagonal o vertical
 				// es el costo de traer desde nodo anterior, mas el nuevo costo de transitar
 				if (math.Abs(float64(mov.X)) + math.Abs(float64(mov.Y))) == 2 {
