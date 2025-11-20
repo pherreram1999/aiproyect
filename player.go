@@ -19,8 +19,8 @@ type Player struct {
 	StayAnimation    *Animation
 	MovingAnimation  *Animation
 	IsMoving         bool
-	CurrentPosition  *Vector
-	TargetPosition   *Vector
+	CurrentPosition  *Vector2d
+	TargetPosition   *Vector2d
 	NodePosition     *Node
 	CurrentDirection Direction
 	Points           uint

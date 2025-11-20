@@ -9,8 +9,8 @@ import (
 type Enemy struct {
 	Animation             *Animation // animacion de los sprites
 	NodePosition          *Node      // indica la posicion dentro del mapa
-	VectorCurrentPosition *Vector    // los vectores son utilizados para calcular un desplazamiento suave
-	VectorTargetPosition  *Vector
+	VectorCurrentPosition *Vector2d  // los vectores son utilizados para calcular un desplazamiento suave
+	VectorTargetPosition  *Vector2d
 	Elapse                int // lapso de tiempo en que se realiza el calculo del posicion del jugador
 	ElapseDecrement       int // decrementos en avance en la reducion de lapso
 	TickCounter           int
