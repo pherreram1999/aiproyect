@@ -39,14 +39,14 @@ type Font struct {
 	Options *text.DrawOptions
 }
 type Game struct {
-	Maze        Maze
-	Dimensiones *Dimensiones
-	Player      *Player
-	IsMoving    bool
-	MazeAssets  *MazeAssets
-	Enemy       *Enemy
-	State       State
-	Font        *Font
+	Maze        Maze         // guarda la matriz del mapa del juego
+	Dimensiones *Dimensiones // guarda las dimensiones del mapa del juego
+	Player      *Player      // guarda el objeto del datos del jugador
+	IsMoving    bool         // indica si se esta moviendo en el mapa
+	MazeAssets  *MazeAssets  // contiene texturas para el renderizado del mapa
+	Enemy       *Enemy       // datos policia "autonomo"
+	State       State        // indica el estado actual del juego, si esta jugado o ha terminad
+	Font        *Font        // fuente para renderizar en el juego
 }
 
 // MovePlayer se encarga de crear de calcular las frames actuales Y las posiciones vectoriales
@@ -78,6 +78,8 @@ func (j *Game) MovePlayer() {
 	if j.Maze.Get(j.Player.NodePosition.X, j.Player.NodePosition.Y) == AjolotePointType {
 		p.Points += AjolotePointValue
 
+		// ajustamos el intervalor de tiempo para aumentar dificultad
+		j.Enemy.Elapse -= j.Enemy.ElapseDecrement
 		j.Maze.Set(j.Player.NodePosition.X, j.Player.NodePosition.Y, Transitable) // indicamos que ya solo es camino
 	}
 }
@@ -249,9 +251,13 @@ func main() {
 
 	// cargamos al enemigo
 
+	delta := EnemyElapseMax - EnemyElapseMin // recorrido en minimo y maximo (distancia)
+	pasos := MaxAjolotePoints / delta        // cuantos pasos hay el recorrido, segun cuantos puntos maximos halla
+
 	juego.Enemy = &Enemy{
-		NodePosition: NewNode(c-2, f-2), // columnas, filas, se considera que n-1 menos el los muros
-		Elapse:       EnemyElapse,       // cada cierto ciclos va recalcular la ruta al enemigo
+		NodePosition:    NewNode(c-2, f-2), // columnas, filas, se considera que n-1 menos el los muros
+		Elapse:          EnemyElapseMax,    // cada cierto ciclos va recalcular la ruta al enemigo
+		ElapseDecrement: delta / pasos,     // cada punto cuesta un una parte del recorrido
 	}
 
 	juego.Enemy.VectorCurrentPosition = NewVector(

@@ -21,7 +21,8 @@ const (
 	squaredMoveSpeed = moveSpeed * squareSize
 	TPS              = 60
 
-	EnemyElapse = TPS
+	EnemyElapseMax = 80
+	EnemyElapseMin = 30
 
 	NumAjolotes = 5
 
