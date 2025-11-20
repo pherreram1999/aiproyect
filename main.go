@@ -6,9 +6,11 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
+	"gorm.io/gorm"
 )
 
 type State int
@@ -47,6 +49,8 @@ type Game struct {
 	Enemy       *Enemy       // datos policia "autonomo"
 	State       State        // indica el estado actual del juego, si esta jugado o ha terminad
 	Font        *Font        // fuente para renderizar en el juego
+	StartTime   time.Time    // indica cuando empezo la partida del jugador
+	DB          *gorm.DB
 }
 
 // MovePlayer se encarga de crear de calcular las frames actuales Y las posiciones vectoriales
@@ -89,7 +93,21 @@ func (j *Game) MoveEnemy() {
 	e.Tick() // avanzar animaciones del enemigo
 }
 
-func GameOver() {
+func (j *Game) GameOver() {
+	// tenemos que registrar el puntaje del jugados
+
+	diff := time.Now().Sub(j.StartTime).Seconds()
+	err := j.DB.Create(&GameScore{
+		Velocity: j.Enemy.Elapse,
+		Score:    j.Player.Points,
+		Time:     diff,
+	}).Error
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	j.State = GameOverState
 
 }
 
@@ -133,15 +151,11 @@ func (j *Game) Update() error {
 		// validamos si tanto el enemigo como el jugador llegaron a colisionar si estan en
 		// en el mismo punto (nodo)
 
-		if j.Enemy.NodePosition.Equal(j.Player.NodePosition) {
+		if j.Enemy.NodePosition.Equal(j.Player.NodePosition) || j.Player.Points == MaxAjolotePoints {
 			// indicamos que tenemos que acabar el juego
-
+			j.GameOver()
 		}
 
-		// validamos si ya tiene todos lo puntos recoltados
-
-		if j.Player.Points == MaxAjolotePoints {
-		}
 	}
 
 	return nil
@@ -149,6 +163,8 @@ func (j *Game) Update() error {
 
 func (j *Game) Draw(screen *ebiten.Image) {
 
+	// dibujamos le puntaje
+	text.Draw(screen, fmt.Sprintf("puntos %d", j.Player.Points), j.Font.Face, j.Font.Options)
 	if j.State == PlayingState {
 		j.DrawMaze(screen)
 		// dibujamos el jugaodor
@@ -160,8 +176,9 @@ func (j *Game) Draw(screen *ebiten.Image) {
 		// animacion para los ajolote poins
 		j.MazeAssets.AjoloteAnimation.Tick()
 
-		// dibujamos le puntaje
-		text.Draw(screen, fmt.Sprintf("puntos %d", j.Player.Points), j.Font.Face, j.Font.Options)
+	} else if j.State == GameOverState {
+		// dibujamos el games over
+
 	}
 }
 
@@ -170,6 +187,18 @@ func (j *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func main() {
+	// incializamos la base datos
+
+	db, err := OpenDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err = db.AutoMigrate(&GameScore{}); err != nil {
+		log.Fatal(err)
+	}
+
 	// cargamos la fuente
 	fontFile, err := assetsFS.Open("assets/font.ttf")
 	if err != nil {
@@ -236,7 +265,9 @@ func main() {
 			Floor: openAsset(assetsFS, "assets/floor.png"),
 			Wall:  openAsset(assetsFS, "assets/wall.png"),
 		},
-		State: PlayingState,
+		State:     PlayingState,
+		DB:        db,
+		StartTime: time.Now(),
 	}
 
 	// para que el jugador tenga acceso al los datos del juego

@@ -27,4 +27,6 @@ const (
 	NumAjolotes = 5
 
 	MaxAjolotePoints = NumAjolotes * AjolotePointValue
+
+	DbName = "score.db"
 )
