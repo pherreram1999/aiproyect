@@ -7,6 +7,61 @@ import (
 
 type Vector []float64
 
+func (v Vector) Sum() float64 {
+	sum := 0.0
+	for i := 0; i < len(v); i++ {
+		sum += v[i]
+	}
+	return sum
+}
+
+func (v Vector) Media() float64 {
+	n := len(v)
+	if n == 0 {
+		return 0.0
+	}
+	return v.Sum() / float64(n)
+}
+
+func (v Vector) StandardDeviation() float64 {
+	n := len(v)
+	if n == 0 {
+		return 0.0
+	}
+	sumaCuadrica := 0.0
+	media := v.Media()
+	for i := 0; i < len(v); i++ {
+		x := v[i] - media
+		sumaCuadrica += x * x
+	}
+	return math.Sqrt(sumaCuadrica / float64(n))
+}
+
+func (v Vector) Normalizar() (Vector, float64, float64) {
+	normalizado := make(Vector, len(v))
+	media := v.Media()
+	desviacion := v.StandardDeviation()
+
+	if desviacion == 0.0 { // todos los valores son iguales, por defecto el arreglo son de ceros
+		return normalizado, media, desviacion
+	}
+
+	for i := 0; i < len(v); i++ {
+		normalizado[i] = (v[i] - media) / desviacion
+	}
+	return normalizado, media, desviacion
+}
+
+func (v Vector) DesNormalizar(media, desviacion float64) Vector {
+	desnormalizado := make(Vector, len(v))
+
+	for i := 0; i < len(v); i++ {
+		desnormalizado[i] = (v[i] * desviacion) + media
+	}
+
+	return desnormalizado
+}
+
 func Ridge(Yr Vector, X []Vector) {
 	m := float64(len(X)) // numero de filas (datos)
 	if m == 0 {
@@ -80,7 +135,7 @@ func Ridge(Yr Vector, X []Vector) {
 		b0 = b0 - (lr/m)*sumaYDelta
 
 		for jg := 0; jg < numCaracteristicas; jg++ {
-			betas[jg] = betas[jg] - (lr/m)*gradientes[jg] + T*betas[jg]
+			betas[jg] = betas[jg] - lr*((gradientes[jg]/m)+(T*betas[jg]))
 		}
 		epocas++
 	}
