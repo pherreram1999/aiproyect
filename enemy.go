@@ -7,11 +7,12 @@ import (
 )
 
 type Enemy struct {
-	Animation             *Animation
-	NodePosition          *Node
-	VectorCurrentPosition *Vector
-	VectorTargetPosition  *Vector
-	Elapse                int
+	Animation             *Animation // animacion de los sprites
+	NodePosition          *Node      // indica la posicion dentro del mapa
+	VectorCurrentPosition *Vector2d  // los vectores son utilizados para calcular un desplazamiento suave
+	VectorTargetPosition  *Vector2d
+	Elapse                int // lapso de tiempo en que se realiza el calculo del posicion del jugador
+	ElapseDecrement       int // decrementos en avance en la reducion de lapso
 	TickCounter           int
 	Juego                 *Game
 	PathIndex             int
@@ -56,6 +57,7 @@ func (e *Enemy) UpdateVectorTargetPosition() {
 	)
 }
 
+// Tick determina los avances en lapsos de avance
 func (e *Enemy) Tick() {
 	e.Animation.Tick()
 
@@ -78,9 +80,8 @@ func (e *Enemy) Tick() {
 				// actualizamos su posicion actual
 				e.NodePosition = e.GetCurrentPathNode()
 			}
-			e.UpdateVectorTargetPosition()
 
-			// tenemos que revisar la direccion a la mira
+			e.UpdateVectorTargetPosition()
 
 		}
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
 )
@@ -159,25 +158,7 @@ func NewMaze(ancho, alto int) Maze {
 	return laberinto
 }
 
-// ImprimirLaberinto muestra por consola el laberinto usando emojis: 🧱 = muro, espacio = pasillo.
-func ImprimirLaberinto(laberinto [][]int) {
-	// Recorremos cada fila.
-	for _, fila := range laberinto {
-		// Recorremos cada celda de la fila.
-		for _, celda := range fila {
-			// Si la celda vale 1 imprimimos un emoji de muro.
-			if celda == 1 {
-				fmt.Print("🧱")
-			} else {
-				// Si es 0 imprimimos dos espacios para dar aspecto de pasillo.
-				fmt.Print("  ")
-			}
-		}
-		// Saltamos de línea después de cada fila.
-		fmt.Println()
-	}
-}
-
+// GetShape devuelve el numero de filas y columnas del laberinto
 func (m Maze) GetShape() (int, int) {
 	filas := len(m)
 	cols := 0
@@ -185,4 +166,13 @@ func (m Maze) GetShape() (int, int) {
 		cols = len(m[0])
 	}
 	return filas, cols
+}
+
+// coloca un valor en mapa dada un posicion de nodo
+func (m Maze) Set(x, y, value int) {
+	m[y][x] = value
+}
+
+func (m Maze) Get(x, y int) int {
+	return m[y][x]
 }
