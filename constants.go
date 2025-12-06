@@ -7,24 +7,23 @@ const (
 
 	AjolotePointValue = 50
 
-	Filas = 10
+	Filas = 40
 
-	Columnas = 10
+	Columnas = 40
 
 	FontSize = 10
 
 	AjoloteElapse = 12
-	squareSize    = 20
+	squareSize    = 18
 	moveSpeed     = 3
 
-	radioSize        = squareSize / 3
 	squaredMoveSpeed = moveSpeed * squareSize
 	TPS              = 60
 
 	EnemyElapseMax = 80
 	EnemyElapseMin = 30
 
-	NumAjolotes = 5
+	NumAjolotes = 50
 
 	MaxAjolotePoints = NumAjolotes * AjolotePointValue
 

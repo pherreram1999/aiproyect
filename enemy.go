@@ -20,6 +20,8 @@ type Enemy struct {
 	IsMoving              bool
 }
 
+type Enemys []*Enemy
+
 // CalculatePath actualiza el path hacia el jugador
 func (e *Enemy) CalculatePath() {
 	// tenemos que liberar todos las referencias de memoria en camino previo
@@ -39,7 +41,6 @@ func (e *Enemy) CalculatePath() {
 
 func (e *Enemy) Draw(screen *ebiten.Image) {
 	imgOptions := &ebiten.DrawImageOptions{}
-
 	imgOptions.GeoM.Translate(e.VectorCurrentPosition.X, e.VectorCurrentPosition.Y)
 	frame := e.Animation.GetFrame()
 

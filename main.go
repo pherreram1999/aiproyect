@@ -47,10 +47,34 @@ type Game struct {
 	IsMoving    bool         // indica si se esta moviendo en el mapa
 	MazeAssets  *MazeAssets  // contiene texturas para el renderizado del mapa
 	Enemy       *Enemy       // datos policia "autonomo"
-	State       State        // indica el estado actual del juego, si esta jugado o ha terminad
-	Font        *Font        // fuente para renderizar en el juego
-	StartTime   time.Time    // indica cuando empezo la partida del jugador
+	Enemys      Enemys
+	State       State     // indica el estado actual del juego, si esta jugado o ha terminad
+	Font        *Font     // fuente para renderizar en el juego
+	StartTime   time.Time // indica cuando empezo la partida del jugador
 	DB          *gorm.DB
+}
+
+func (j *Game) NewEnemy(position *Node, elapse int) {
+	e := &Enemy{
+		NodePosition:    position,       // columnas, filas, se considera que n-1 menos el los muros
+		Elapse:          EnemyElapseMax, // cada cierto ciclos va recalcular la ruta al enemigo
+		ElapseDecrement: elapse,         // cada punto cuesta un una parte del recorrido
+	}
+
+	e.Animation = NewAnimation(&AnimationOption{
+		Assets:         assetsFS,
+		Indexes:        [2]int{0, 11},
+		TemplateString: "assets/dog/f_%d.png",
+		Elapse:         TPS * .25,
+	})
+
+	e.VectorCurrentPosition = NewVector(
+		float64(e.NodePosition.X*squareSize),
+		float64(e.NodePosition.Y*squareSize),
+	)
+
+	e.Juego = j
+	j.Enemys = append(j.Enemys, e)
 }
 
 // MovePlayer se encarga de crear de calcular las frames actuales Y las posiciones vectoriales
@@ -89,13 +113,15 @@ func (j *Game) MovePlayer() {
 }
 
 func (j *Game) MoveEnemy() {
-	e := j.Enemy
-	e.Tick() // avanzar animaciones del enemigo
+	//e := j.Enemy
+	//e.Tick() // avanzar animaciones del enemigo
+	for _, e := range j.Enemys {
+		e.Tick()
+	}
 }
 
 func (j *Game) GameOver() {
 	// tenemos que registrar el puntaje del jugados
-
 	diff := time.Now().Sub(j.StartTime).Seconds()
 	err := j.DB.Create(&GameScore{
 		Velocity: j.Enemy.Elapse,
@@ -151,9 +177,11 @@ func (j *Game) Update() error {
 		// validamos si tanto el enemigo como el jugador llegaron a colisionar si estan en
 		// en el mismo punto (nodo)
 
-		if j.Enemy.NodePosition.Equal(j.Player.NodePosition) || j.Player.Points == MaxAjolotePoints {
-			// indicamos que tenemos que acabar el juego
-			j.GameOver()
+		for _, e := range j.Enemys { // validamos si alguno de los enemigos toca al jugador
+			if e.NodePosition.Equal(j.Player.NodePosition) || j.Player.Points == MaxAjolotePoints {
+				// indicamos que tenemos que acabar el juego
+				j.GameOver()
+			}
 		}
 
 	}
@@ -171,7 +199,11 @@ func (j *Game) Draw(screen *ebiten.Image) {
 		// lo colocamos en medio de la celda
 		j.Player.DrawPlayer(screen)
 
-		j.Enemy.Draw(screen)
+		//j.Enemy.Draw(screen)
+
+		for _, e := range j.Enemys {
+			e.Draw(screen)
+		}
 
 		// animacion para los ajolote poins
 		j.MazeAssets.AjoloteAnimation.Tick()
@@ -285,37 +317,27 @@ func main() {
 	delta := EnemyElapseMax - EnemyElapseMin // recorrido en minimo y maximo (distancia)
 	pasos := MaxAjolotePoints / delta        // cuantos pasos hay el recorrido, segun cuantos puntos maximos halla
 
+	deltaStep := delta / pasos
 	juego.Enemy = &Enemy{
 		NodePosition:    NewNode(c-2, f-2), // columnas, filas, se considera que n-1 menos el los muros
 		Elapse:          EnemyElapseMax,    // cada cierto ciclos va recalcular la ruta al enemigo
 		ElapseDecrement: delta / pasos,     // cada punto cuesta un una parte del recorrido
 	}
 
-	juego.Enemy.VectorCurrentPosition = NewVector(
-		float64(juego.Enemy.NodePosition.X*squareSize),
-		float64(juego.Enemy.NodePosition.Y*squareSize),
-	)
-
-	juego.Enemy.Juego = juego
-
-	juego.Enemy.Animation = NewAnimation(&AnimationOption{
-		Assets:         assetsFS,
-		Indexes:        [2]int{0, 11},
-		TemplateString: "assets/dog/f_%d.png",
-		Elapse:         TPS * .25,
-	})
+	juego.NewEnemy(NewNode(c-2, f-2), deltaStep)
 
 	// cargamos la animacion de ajolote pesos
-
 	juego.MazeAssets.AjoloteAnimation = NewAnimation(&AnimationOption{
 		Assets:         assetsFS,
 		Indexes:        [2]int{1, 12},
 		TemplateString: "assets/ajolote/f%d.png",
 		Elapse:         AjoloteElapse,
 	})
-
 	// iniciamos el calculo inicial del enemigo
-	juego.Enemy.CalculatePath()
+	for _, e := range juego.Enemys {
+		e.CalculatePath()
+	}
+	//juego.Enemy.CalculatePath()
 
 	ebiten.SetWindowSize(juego.Dimensiones.Ancho, juego.Dimensiones.Alto)
 	ebiten.SetWindowTitle("Catch me!")
