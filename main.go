@@ -59,6 +59,7 @@ func (j *Game) NewEnemy(position *Node, elapse int) {
 		NodePosition:    position,       // columnas, filas, se considera que n-1 menos el los muros
 		Elapse:          EnemyElapseMax, // cada cierto ciclos va recalcular la ruta al enemigo
 		ElapseDecrement: elapse,         // cada punto cuesta un una parte del recorrido
+		PathIndex:       1,
 	}
 
 	e.Animation = NewAnimation(&AnimationOption{

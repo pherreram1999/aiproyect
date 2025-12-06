@@ -67,23 +67,15 @@ func (e *Enemy) Tick() {
 		e.TickCounter++ // este tick es para avanzar el calculo de la ia
 		if e.TickCounter > e.Elapse {
 			// si se pasa, avanzamos un cuadrando al camino
-			e.PathIndex++ // avanzamos un lugar en la ruta
 			e.TickCounter = 0
 			e.IsMoving = true
-
-			if e.PathIndex >= len(e.Path) {
-				// ha este punto se llega final de la ruta,
-				// ahora el punto final
-				e.NodePosition = e.Path[e.PathIndex-1] // considerar que se rebaso el numero de nodos
-				e.PathIndex = 0                        // reniciamos el contador del path
-				e.CalculatePath()
-			} else {
-				// actualizamos su posicion actual
-				e.NodePosition = e.GetCurrentPathNode()
-			}
+			// calculamos a cada paso la ruta al enemigo
+			e.CalculatePath()
+			// dado el path se actualiza cada elapse,
+			// siempre se avanza al segundo elemento de la ruta
+			e.NodePosition = e.Path[e.PathIndex]
 
 			e.UpdateVectorTargetPosition()
-
 		}
 	}
 
