@@ -200,7 +200,6 @@ func (j *Game) Update() error {
 func (j *Game) Draw(screen *ebiten.Image) {
 
 	// dibujamos le puntaje
-	text.Draw(screen, fmt.Sprintf("puntos %d", j.Player.Points), j.Font.Face, j.Font.Options)
 	if j.State == PlayingState {
 		j.DrawMaze(screen)
 		// dibujamos el jugaodor
@@ -220,6 +219,7 @@ func (j *Game) Draw(screen *ebiten.Image) {
 		// dibujamos el games over
 
 	}
+	text.Draw(screen, fmt.Sprintf("Puntaje: %d", j.Player.Points), j.Font.Face, j.Font.Options)
 }
 
 func (j *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -308,7 +308,7 @@ func main() {
 	font := &Font{
 		Face: &text.GoTextFace{
 			Source: fontSource,
-			Size:   FontSize,
+			Size:   FontSize + 8,
 		},
 		Options: &text.DrawOptions{},
 	}
