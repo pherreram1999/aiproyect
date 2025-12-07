@@ -125,8 +125,9 @@ func (j *Game) MoveEnemy() {
 func (j *Game) GameOver() {
 	// tenemos que registrar el puntaje del jugados
 	diff := time.Now().Sub(j.StartTime).Seconds()
+	e := j.Enemys[0] // tomamos el primer enemigo, todos comparten el mismo dato
 	err := j.DB.Create(&GameScore{
-		Velocity: j.Enemy.Elapse,
+		Velocity: e.Elapse,
 		Score:    j.Player.Points,
 		Time:     diff,
 	}).Error
