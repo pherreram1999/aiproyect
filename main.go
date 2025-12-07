@@ -106,9 +106,10 @@ func (j *Game) MovePlayer() {
 
 	if j.Maze.Get(j.Player.NodePosition.X, j.Player.NodePosition.Y) == AjolotePointType {
 		p.Points += AjolotePointValue
-
 		// ajustamos el intervalor de tiempo para aumentar dificultad
-		j.Enemy.Elapse -= j.Enemy.ElapseDecrement
+		for _, e := range j.Enemys {
+			e.Elapse -= e.ElapseDecrement
+		}
 		j.Maze.Set(j.Player.NodePosition.X, j.Player.NodePosition.Y, Transitable) // indicamos que ya solo es camino
 	}
 }
@@ -326,6 +327,8 @@ func main() {
 	}
 
 	juego.NewEnemy(NewNode(c-2, f-2), deltaStep)
+	juego.NewEnemy(NewNode(c-2, 1), deltaStep)
+	juego.NewEnemy(NewNode(1, f-2), deltaStep)
 
 	// cargamos la animacion de ajolote pesos
 	juego.MazeAssets.AjoloteAnimation = NewAnimation(&AnimationOption{
