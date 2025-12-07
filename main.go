@@ -46,7 +46,6 @@ type Game struct {
 	Player      *Player      // guarda el objeto del datos del jugador
 	IsMoving    bool         // indica si se esta moviendo en el mapa
 	MazeAssets  *MazeAssets  // contiene texturas para el renderizado del mapa
-	Enemy       *Enemy       // datos policia "autonomo"
 	Enemys      Enemys
 	State       State     // indica el estado actual del juego, si esta jugado o ha terminad
 	Font        *Font     // fuente para renderizar en el juego
@@ -321,11 +320,6 @@ func main() {
 	pasos := MaxAjolotePoints / delta        // cuantos pasos hay el recorrido, segun cuantos puntos maximos halla
 
 	deltaStep := delta / pasos
-	juego.Enemy = &Enemy{
-		NodePosition:    NewNode(c-2, f-2), // columnas, filas, se considera que n-1 menos el los muros
-		Elapse:          EnemyElapseMax,    // cada cierto ciclos va recalcular la ruta al enemigo
-		ElapseDecrement: delta / pasos,     // cada punto cuesta un una parte del recorrido
-	}
 
 	juego.NewEnemy(NewNode(c-2, f-2), deltaStep)
 	juego.NewEnemy(NewNode(c-2, 1), deltaStep)
