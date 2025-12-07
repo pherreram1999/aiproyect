@@ -28,4 +28,6 @@ const (
 	MaxAjolotePoints = NumAjolotes * AjolotePointValue
 
 	DbName = "score.db"
+
+	sampleRate = 44100
 )

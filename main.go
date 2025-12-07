@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"image/color"
 	_ "image/png"
+	"io"
 	"log"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
+	"github.com/hajimehoshi/ebiten/v2/audio/vorbis"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"gorm.io/gorm"
 )
@@ -41,16 +44,17 @@ type Font struct {
 	Options *text.DrawOptions
 }
 type Game struct {
-	Maze        Maze         // guarda la matriz del mapa del juego
-	Dimensiones *Dimensiones // guarda las dimensiones del mapa del juego
-	Player      *Player      // guarda el objeto del datos del jugador
-	IsMoving    bool         // indica si se esta moviendo en el mapa
-	MazeAssets  *MazeAssets  // contiene texturas para el renderizado del mapa
-	Enemys      Enemys
-	State       State     // indica el estado actual del juego, si esta jugado o ha terminad
-	Font        *Font     // fuente para renderizar en el juego
-	StartTime   time.Time // indica cuando empezo la partida del jugador
-	DB          *gorm.DB
+	Maze          Maze         // guarda la matriz del mapa del juego
+	Dimensiones   *Dimensiones // guarda las dimensiones del mapa del juego
+	Player        *Player      // guarda el objeto del datos del jugador
+	IsMoving      bool         // indica si se esta moviendo en el mapa
+	MazeAssets    *MazeAssets  // contiene texturas para el renderizado del mapa
+	Enemys        Enemys
+	State         State     // indica el estado actual del juego, si esta jugado o ha terminad
+	Font          *Font     // fuente para renderizar en el juego
+	StartTime     time.Time // indica cuando empezo la partida del jugador
+	DB            *gorm.DB
+	CoinSoundData []byte
 }
 
 func (j *Game) NewEnemy(position *Node, elapse int) {
@@ -110,6 +114,8 @@ func (j *Game) MovePlayer() {
 			e.Elapse -= e.ElapseDecrement
 		}
 		j.Maze.Set(j.Player.NodePosition.X, j.Player.NodePosition.Y, Transitable) // indicamos que ya solo es camino
+		// sonamos que tomo una ajolote point
+		j.playCoinSound()
 	}
 }
 
@@ -218,6 +224,60 @@ func (j *Game) Draw(screen *ebiten.Image) {
 
 func (j *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return j.Dimensiones.Ancho, j.Dimensiones.Alto
+}
+
+func PlayMusic() {
+	// 1. Obtener el contexto global (NO usar audio.NewContext)
+	// Si el contexto no existe, Ebitengine lo inicializa implícitamente aquí.
+	ctx := audio.CurrentContext()
+	if ctx == nil {
+		// Si es nil, lo inicializamos explícitamente (seguridad para versiones muy nuevas)
+		ctx = audio.NewContext(sampleRate)
+	}
+
+	// 2. Decodificar el archivo (Usando Vorbis/OGG para mejor loop)
+	// DecodeWithoutResampling es más eficiente si tu audio ya está en 44100Hz
+	soundFile, err := assetsFS.Open("assets/sounds/soundtrack.ogg")
+	if err != nil {
+		log.Fatal(err)
+	}
+	d, err := vorbis.DecodeWithSampleRate(sampleRate, soundFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// 3. Crear el bucle (La forma explícita y moderna)
+	// NewInfiniteLoopWithIntro(fuente, bytesIntro, bytesLoop)
+	// Para un bucle completo de toda la canción:
+	// Intro = 0, LoopLength = Longitud total del archivo decodificado
+	loop := audio.NewInfiniteLoopWithIntro(d, 0, d.Length())
+
+	// 4. Crear el reproductor
+	player, err := ctx.NewPlayer(loop)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	player.SetVolume(0.5)
+	player.Play()
+}
+
+// Función auxiliar para reproducir el sonido
+func (g *Game) playCoinSound() {
+	// 3. Crear un reproductor "desechable" desde la memoria
+	// NewPlayerFromBytes es muy ligero y eficiente para SFX
+	ctx := audio.CurrentContext()
+	if ctx == nil {
+		ctx = audio.NewContext(sampleRate)
+	}
+
+	player := ctx.NewPlayerFromBytes(g.CoinSoundData)
+
+	// Opcional: Variar un poco el volumen o añadir lógica extra
+	player.SetVolume(0.8)
+
+	// Reproducir
+	player.Play()
 }
 
 func main() {
@@ -337,6 +397,25 @@ func main() {
 		e.CalculatePath()
 	}
 	//juego.Enemy.CalculatePath()
+
+	PlayMusic()
+
+	// cargamos el sonido de la moneda
+
+	coinFile, err := assetsFS.Open("assets/sounds/coin.ogg")
+	if err != nil {
+		log.Fatal(err)
+	}
+	d, err := vorbis.DecodeWithSampleRate(sampleRate, coinFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	juego.CoinSoundData, err = io.ReadAll(d)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	ebiten.SetWindowSize(juego.Dimensiones.Ancho, juego.Dimensiones.Alto)
 	ebiten.SetWindowTitle("Catch me!")
