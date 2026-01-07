@@ -10,14 +10,22 @@ type Maze [][]int
 // Pos guarda una posición en la matriz del laberinto.
 // Usamos Y (fila) Y X (columna) para mantener el mismo orden que en el código Python.
 type Pos struct {
-	Y int // fila (coordenada vertical)
-	X int // columna (coordenada horizontal)
+	Y int
+	X int
 }
 
-// NewVector genera un laberinto usando una variante del algoritmo de Prim.
-// Devuelve una matriz [][]int donde 1 = muro Y 0 = pasillo.
+// Genera un laberinto con loops internos
 func NewMaze(ancho, alto int) Maze {
-	// Si el ancho es par, lo incrementamos para que sea impar (bordes claros).
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	m := newMazePerfect(ancho, alto, rng)
+	braidDeadEnds(m, 0.35, rng)
+
+	return m
+}
+
+// Laberinto base con un solo camino (perfect maze)
+func newMazePerfect(ancho, alto int, rng *rand.Rand) Maze {
 	if ancho%2 == 0 {
 		ancho++
 	}
@@ -27,150 +35,121 @@ func NewMaze(ancho, alto int) Maze {
 		alto++
 	}
 
-	// Creamos la matriz del laberinto con 'alto' filas.
-	laberinto := make([][]int, alto)
-	// Para cada fila, creamos una slice de longitud 'ancho' inicializada con ceros por defecto.
-	for y := range laberinto {
-		laberinto[y] = make([]int, ancho)
-		// Rellenamos explícitamente con 1 para representar muros.
-		for x := range laberinto[y] {
-			laberinto[y][x] = 1 // 1 representa muro
+	lab := make([][]int, alto)
+	for y := range lab {
+		lab[y] = make([]int, ancho)
+		for x := range lab[y] {
+			lab[y][x] = 1
 		}
 	}
 
-	// Semilla aleatoria basada en el tiempo actual para resultados distintos en cada ejecución.
-	rand.Seed(time.Now().UnixNano())
+	startX := rng.Intn(ancho/2)*2 + 1
+	startY := rng.Intn(alto/2)*2 + 1
+	lab[startY][startX] = 0
 
-	// Elegimos un punto inicial aleatorio con coordenadas impares:
-	// rand.Intn(ancho/2) devuelve un valor en [0, ancho/2), lo multiplicamos por 2 Y sumamos 1 => {1,3,5,...}
-	inicioX := rand.Intn(ancho/2)*2 + 1
-	inicioY := rand.Intn(alto/2)*2 + 1
+	var walls []Pos
+	dirs := []Pos{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
 
-	// Marcamos la celda inicial como pasillo (0).
-	laberinto[inicioY][inicioX] = 0
-
-	// Definimos el tipo lista de muros (frontera). Usamos Pos para almacenar coordenadas (Y,X).
-	var muros []Pos
-
-	// Definimos las 4 direcciones como desplazamientos en Y,X.
-	dirs := []Pos{
-		{Y: -1, X: 0}, // arriba
-		{Y: 1, X: 0},  // abajo
-		{Y: 0, X: -1}, // izquierda
-		{Y: 0, X: 1},  // derecha
-	}
-
-	// Añadimos los muros vecinos (adyacentes) de la celda inicial a la lista de muros.
-	// Recorremos cada dirección Y calculamos la posición vecina.
 	for _, d := range dirs {
-		y := inicioY + d.Y // fila vecina
-		x := inicioX + d.X // columna vecina
-		// Comprobamos que la posición esté dentro de los límites.
-		if y >= 0 && y < alto && x >= 0 && x < ancho {
-			// Añadimos la posición a la lista de muros.
-			muros = append(muros, Pos{Y: y, X: x})
-		}
+		walls = append(walls, Pos{startY + d.Y, startX + d.X})
 	}
 
-	// Bucle principal: procesamos mientras haya muros en la lista.
-	for len(muros) > 0 {
-		// Elegimos un índice aleatorio entre 0 Y len(muros)-1.
-		i := rand.Intn(len(muros))
-		// Obtenemos el muro seleccionado.
-		muro := muros[i]
-		muroY, muroX := muro.Y, muro.X
+	for len(walls) > 0 {
+		i := rng.Intn(len(walls))
+		w := walls[i]
+		walls = append(walls[:i], walls[i+1:]...)
 
-		// Eliminamos el muro seleccionado de la slice (mantenemos el orden no importantísimo).
-		// Lo hacemos concatenando la parte izquierda Y la parte derecha sin el elemento i.
-		muros = append(muros[:i], muros[i+1:]...)
-
-		// Determinamos las dos celdas opuestas separadas por este muro.
-		// Si el muro está en una fila par => muro vertical (entre celdas verticales).
-		// Si el muro está en una fila impar => muro horizontal (entre celdas horizontales).
-		var celda1 Pos
-		var celda2 Pos
-
-		// Si la coordenada Y del muro es par, el muro es horizontal en la malla de celdas (separa arriba/abajo).
-		// (esto sigue la convención de usar celdas en posiciones impares, muros en posiciones pares).
-		if muroY%2 == 0 {
-			celda1 = Pos{Y: muroY - 1, X: muroX} // celda arriba del muro
-			celda2 = Pos{Y: muroY + 1, X: muroX} // celda abajo del muro
+		var c1, c2 Pos
+		if w.Y%2 == 0 {
+			c1 = Pos{w.Y - 1, w.X}
+			c2 = Pos{w.Y + 1, w.X}
 		} else {
-			// Si Y es impar, entonces el muro separa izquierda/derecha.
-			celda1 = Pos{Y: muroY, X: muroX - 1} // celda izquierda del muro
-			celda2 = Pos{Y: muroY, X: muroX + 1} // celda derecha del muro
+			c1 = Pos{w.Y, w.X - 1}
+			c2 = Pos{w.Y, w.X + 1}
 		}
 
-		// Verificamos límites: si alguna de las celdas está fuera, el muro toca el borde exterior Y lo ignoramos.
-		if celda1.Y < 0 || celda1.X < 0 || celda2.Y < 0 || celda2.X < 0 ||
-			celda1.Y >= alto || celda1.X >= ancho || celda2.Y >= alto || celda2.X >= ancho {
-			continue // pasa a la siguiente iteración
+		if !inside(lab, c1) || !inside(lab, c2) {
+			continue
 		}
 
-		// Comprobamos si cada celda es muro (no visitada) o ya es pasillo (visitada).
-		celda1EsMuro := laberinto[celda1.Y][celda1.X] == 1
-		celda2EsMuro := laberinto[celda2.Y][celda2.X] == 1
+		if lab[c1.Y][c1.X] != lab[c2.Y][c2.X] {
+			lab[w.Y][w.X] = 0
 
-		// Si exactamente una de las celdas es muro (es decir, c1 != c2),
-		// entonces podemos abrir el muro para conectar la celda visitada con la no visitada.
-		if celda1EsMuro != celda2EsMuro {
-			// Convertimos el muro en pasillo (abrimos el paso).
-			laberinto[muroY][muroX] = 0
-
-			// Determinamos cuál de las dos celdas será la nueva celda abierta (la que era muro).
-			var nueva Pos
-			if celda1EsMuro {
-				nueva = celda1 // abrimos celda1 si era muro
+			var next Pos
+			if lab[c1.Y][c1.X] == 1 {
+				next = c1
 			} else {
-				nueva = celda2 // abrimos celda2 si era muro
+				next = c2
 			}
-
-			// Marcamos la nueva celda como pasillo.
-			laberinto[nueva.Y][nueva.X] = 0
+			lab[next.Y][next.X] = 0
 
 			// Añadimos los muros vecinos de la nueva celda a la lista de muros.
 			// Recorremos las 4 direcciones para obtener los vecinos.
 			for _, d := range dirs {
-				ny := nueva.Y + d.Y // fila del vecino
-				nx := nueva.X + d.X // columna del vecino
-
-				// Verificamos que el vecino esté dentro de los límites Y que sea un muro.
-				if ny >= 0 && ny < alto && nx >= 0 && nx < ancho && laberinto[ny][nx] == 1 {
-					// Evitamos añadir duplicados: comprobamos si ya está en la lista 'muros'.
-					duplicado := false
-					for _, m := range muros {
-						if m.Y == ny && m.X == nx {
-							duplicado = true
-							break
-						}
-					}
-					// Si no está duplicado, lo añadimos.
-					if !duplicado {
-						muros = append(muros, Pos{Y: ny, X: nx})
-					}
+				ny, nx := next.Y+d.Y, next.X+d.X
+				if insideXY(lab, ny, nx) && lab[ny][nx] == 1 {
+					walls = append(walls, Pos{ny, nx})
 				}
 			}
 		}
-		// Si ambas celdas ya son pasillo o ambas son muro, no hacemos nada (no conectamos).
 	}
 
-	// Devolvemos la matriz completa con muros Y pasillos.
-	return laberinto
+	return lab
 }
 
-// GetShape devuelve el numero de filas y columnas del laberinto
+// Rompe callejones para crear loops internos
+func braidDeadEnds(m Maze, prob float64, rng *rand.Rand) {
+	h, w := len(m), len(m[0])
+	dirs := []Pos{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
+
+	openNeighbors := func(y, x int) int {
+		c := 0
+		for _, d := range dirs {
+			ny, nx := y+d.Y, x+d.X
+			if insideXY(m, ny, nx) && m[ny][nx] == 0 {
+				c++
+			}
+		}
+		return c
+	}
+
+	for y := 1; y < h-1; y += 2 {
+		for x := 1; x < w-1; x += 2 {
+			if m[y][x] != 0 || openNeighbors(y, x) != 1 {
+				continue
+			}
+			if rng.Float64() > prob {
+				continue
+			}
+
+			jumps := []Pos{{-2, 0}, {2, 0}, {0, -2}, {0, 2}}
+			for _, j := range jumps {
+				ty, tx := y+j.Y, x+j.X
+				wy, wx := (y+ty)/2, (x+tx)/2
+				if insideXY(m, ty, tx) && m[ty][tx] == 0 && m[wy][wx] == 1 {
+					m[wy][wx] = 0
+					break
+				}
+			}
+		}
+	}
+}
+
+// Helpers
+func inside(m Maze, p Pos) bool {
+	return p.Y >= 0 && p.Y < len(m) && p.X >= 0 && p.X < len(m[0])
+}
+
+func insideXY(m Maze, y, x int) bool {
+	return y >= 0 && y < len(m) && x >= 0 && x < len(m[0])
+}
+
 func (m Maze) GetShape() (int, int) {
-	filas := len(m)
-	cols := 0
-	if filas > 0 {
-		cols = len(m[0])
-	}
-	return filas, cols
+	return len(m), len(m[0])
 }
 
-// coloca un valor en mapa dada un posicion de nodo
-func (m Maze) Set(x, y, value int) {
-	m[y][x] = value
+func (m Maze) Set(x, y, v int) {
+	m[y][x] = v
 }
 
 func (m Maze) Get(x, y int) int {
