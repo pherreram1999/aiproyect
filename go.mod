@@ -5,6 +5,10 @@ go 1.25
 require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/hajimehoshi/ebiten/v2 v2.9.0
+<<<<<<< HEAD
+=======
+	gonum.org/v1/gonum v0.17.0
+>>>>>>> origin/main
 	gorm.io/gorm v1.31.1
 )
 

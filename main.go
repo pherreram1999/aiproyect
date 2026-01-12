@@ -7,6 +7,7 @@ import (
 	_ "image/png"
 	"io"
 	"log"
+	"os"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -14,6 +15,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/audio/vorbis"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
+	"gonum.org/v1/gonum/mat"
 	"gorm.io/gorm"
 )
 
@@ -441,6 +443,14 @@ func (j *Game) Draw(screen *ebiten.Image) {
 
 		j.Font.Options.GeoM.Reset()
 	}
+<<<<<<< HEAD
+=======
+
+	text.Draw(screen, fmt.Sprintf("Puntaje: %d", j.Player.Points), j.Font.Face, j.Font.Options)
+	fontVelocidad := *j.Font.Options
+	fontVelocidad.GeoM.Translate(300, 0)
+	text.Draw(screen, fmt.Sprintf("Velocidad: %d", j.Enemys[0].Elapse), j.Font.Face, &fontVelocidad)
+>>>>>>> origin/main
 }
 
 func (j *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -502,6 +512,22 @@ func (g *Game) playCoinSound() {
 }
 
 func main() {
+	// Manejo de argumentos de línea de comandos
+	trainMode := false
+	noPredict := false
+	for _, arg := range os.Args[1:] {
+		if arg == "-e" {
+			trainMode = true
+		} else if arg == "-n" {
+			noPredict = true
+		}
+	}
+
+	if trainMode {
+		RunTraining()
+		return
+	}
+
 	// incializamos la base datos
 
 	db, err := OpenDB()
@@ -512,6 +538,43 @@ func main() {
 
 	if err = db.AutoMigrate(&GameScore{}); err != nil {
 		log.Fatal(err)
+	}
+
+	// 3. Predicción de velocidad (lógica solicitada)
+	predictedElapse := EnemyElapseMax // Valor por defecto (Lento)
+
+	if !noPredict {
+		// Verificar si existe el modelo
+		if _, err := os.Stat("modelo_velocidad.gob"); err == nil {
+			// Cargar modelo
+			W, B, err := CargarModelo("modelo_velocidad")
+			if err != nil {
+				log.Printf("Advertencia: No se pudo cargar el modelo: %v\n", err)
+			} else {
+				// Obtener último puntaje
+				var lastGame GameScore
+				// Order by CreatedAt desc, limit 1
+				result := db.Order("created_at desc").First(&lastGame)
+
+				if result.Error == nil {
+					// Predecir
+					// Inputs: [Score, Time]
+					// Nota: El modelo ya incluye la normalización de inputs en W[0], B[0]
+					input := mat.NewDense(1, 2, []float64{float64(lastGame.Score), lastGame.Time})
+					out := Predecir(input, W, B)
+					val := out.At(0, 0) // Salida Sigmoide 0..1
+
+					// Desnormalizar Salida (MinMax)
+					// velocity = val * (Max - Min) + Min
+					predVal := val*float64(EnemyElapseMax-EnemyElapseMin) + float64(EnemyElapseMin)
+					predictedElapse = int(predVal)
+
+					fmt.Printf("¡Modelo cargado! Velocidad predicha para el enemigo: %d (Basado en Score: %d, Time: %.2f)\n", predictedElapse, lastGame.Score, lastGame.Time)
+				} else {
+					log.Println("No se encontraron partidas previas para predecir. Usando velocidad por defecto.")
+				}
+			}
+		}
 	}
 
 	// cargamos la fuente
@@ -605,6 +668,13 @@ func main() {
 	juego.NewEnemy(NewNode(c-2, f-2), deltaStep)
 	juego.NewEnemy(NewNode(c-2, 1), deltaStep)
 	juego.NewEnemy(NewNode(1, f-2), deltaStep)
+
+	// Aplicar velocidad predicha
+	if predictedElapse != EnemyElapseMax {
+		for _, e := range juego.Enemys {
+			e.Elapse = predictedElapse
+		}
+	}
 
 	// cargamos la animacion de ajolote pesos
 	juego.MazeAssets.AjoloteAnimation = NewAnimation(&AnimationOption{
