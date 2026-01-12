@@ -362,13 +362,14 @@ func GuardarModelo(nombreModelo string, W []*mat.Dense, B []*mat.Dense) {
 		r, c := w.Dims()
 		dump.WRows = append(dump.WRows, r)
 		dump.WCols = append(dump.WCols, c)
-		dump.WData = append(dump.WData, mat.Col(nil, 0, w.T().(*mat.Dense))) // Flatten data
+		// Guardamos los datos crudos directos del Dense (row-major), que es lo que espera NewDense al cargar
+		dump.WData = append(dump.WData, w.RawMatrix().Data)
 	}
 	for _, b := range B {
 		r, c := b.Dims()
 		dump.BRows = append(dump.BRows, r)
 		dump.BCols = append(dump.BCols, c)
-		dump.BData = append(dump.BData, mat.Col(nil, 0, b.T().(*mat.Dense)))
+		dump.BData = append(dump.BData, b.RawMatrix().Data)
 	}
 
 	file, err := os.Create(nombreModelo + ".gob")

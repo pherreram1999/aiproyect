@@ -7,6 +7,7 @@ import (
 	_ "image/png"
 	"io"
 	"log"
+	"os"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -281,6 +282,20 @@ func (g *Game) playCoinSound() {
 }
 
 func main() {
+	// Manejo de argumentos de línea de comandos
+	trainMode := false
+	for _, arg := range os.Args[1:] {
+		if arg == "-e" {
+			trainMode = true
+			break
+		}
+	}
+
+	if trainMode {
+		RunTraining()
+		return
+	}
+
 	// incializamos la base datos
 
 	db, err := OpenDB()
