@@ -276,12 +276,15 @@ func Desnormalizar(W []*mat.Dense, B []*mat.Dense, media, desviacion []float64) 
 	W_real := make([]*mat.Dense, len(W))
 	B_real := make([]*mat.Dense, len(B))
 	for i := range W {
-		wr := mat.NewDense(0, 0, nil)
-		wr.CloneFrom(W[i])
+		// Usamos Copy con dimensiones explicitas para evitar pánico con dimensiones 0
+		r, c := W[i].Dims()
+		wr := mat.NewDense(r, c, nil)
+		wr.Copy(W[i])
 		W_real[i] = wr
 
-		br := mat.NewDense(0, 0, nil)
-		br.CloneFrom(B[i])
+		rB, cB := B[i].Dims()
+		br := mat.NewDense(rB, cB, nil)
+		br.Copy(B[i])
 		B_real[i] = br
 	}
 

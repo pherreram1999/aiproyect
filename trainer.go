@@ -44,30 +44,27 @@ func RunTraining() {
 		dataX[i*numFeatures+1] = s.Time
 
 		// Yd: [Velocity]
-		dataY[i] = float64(s.Velocity)
+		// Normalizamos MinMax (0-1) para que coincida con Sigmoide
+		// Velocity (Elapse) va de Min=30 (Rápido) a Max=80 (Lento)
+		// dataY[i] = float64(s.Velocity)
+		normY := (float64(s.Velocity) - float64(EnemyElapseMin)) / float64(EnemyElapseMax-EnemyElapseMin)
+		if normY < 0 {
+			normY = 0
+		}
+		if normY > 1 {
+			normY = 1
+		}
+		dataY[i] = normY
 	}
 
 	X := mat.NewDense(numSamples, numFeatures, dataX)
 	Yd := mat.NewDense(numSamples, 1, dataY)
 
-	// 4. Normalizar datos
+	// 4. Normalizar datos de Entrada (X) con Z-Score
 	fmt.Println("Normalizando datos...")
-	X_norm, _, _ := NormalizarZScore(X)
-	// Opcional: Normalizar Yd también si los valores son muy grandes,
-	// pero para regresión/clasificación simple a veces no es estricto.
-	// Sin embargo, la red usa sigmoide en la salida (0-1), así que SI debemos escalar Yd si sus valores salen de 0-1.
-	// El usuario dijo "extraer velocity como una matriz de Yd", no especificó normalizar,
-	// pero la función 'Entrenar' usa sigmoide en la salida final.
-	// Si Velocity > 1, la red saturará.
-	// Revisando 'Entrenar', la capa de salida tiene sigmoide.
-	// Si Velocity es int (ej. 100, 200), necesitamos escalarlo o cambiar la función de activación de salida.
-	// Dado el código existente en network.go, 'Entrenar' fuerza sigmoide en todas las capas.
-	// Por lo tanto, Yd DEBE estar entre 0 y 1.
+	X_norm, media, desviacion := NormalizarZScore(X)
 
-	// Vamos a normalizar Yd usando MinMax o dividiendo por un máximo conocido.
-	// O usamos ZScore y luego desnormalizamos al predecir.
-	// Usaré ZScore para Yd también para ser consistentes con las herramientas que tengo.
-	Yd_norm, _, _ := NormalizarZScore(Yd)
+	// Yd ya está normalizado a 0-1 manualmente
 
 	// 5. Configurar red
 	n_in := 2
@@ -77,13 +74,17 @@ func RunTraining() {
 	epochs := 50000
 
 	fmt.Println("Entrenando modelo...")
-	W, B, ecm := Entrenar(X_norm, Yd_norm, n_in, n_out, n_layers, lr, epochs)
+	W, B, ecm := Entrenar(X_norm, Yd, n_in, n_out, n_layers, lr, epochs)
 
 	if len(ecm) > 0 {
 		fmt.Printf("Error final: %f\n", ecm[len(ecm)-1])
 	}
 
-	// 6. Guardar modelo
+	// 6. Desnormalizar para que el modelo acepte inputs crudos
+	// Integramos la normalización en la primera capa
+	W, B = Desnormalizar(W, B, media, desviacion)
+
+	// 7. Guardar modelo
 	GuardarModelo("modelo_velocidad", W, B)
 	fmt.Println("Entrenamiento finalizado.")
 }
