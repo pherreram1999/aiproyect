@@ -12,6 +12,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/audio/vorbis"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"gorm.io/gorm"
 )
@@ -19,8 +20,10 @@ import (
 type State int
 
 const (
-	PlayingState State = iota
+	MenuState State = iota
+	PlayingState
 	GameOverState
+	ScoresState
 )
 
 //go:embed assets
@@ -44,6 +47,12 @@ type Font struct {
 	Options *text.DrawOptions
 }
 type Game struct {
+	MenuIndex     int
+	Scores        []GameScore
+	ScoresLoaded  bool
+	LastScore     uint
+	LastTimeSec   float64
+	LastVelocity  int
 	Maze          Maze         // guarda la matriz del mapa del juego
 	Dimensiones   *Dimensiones // guarda las dimensiones del mapa del juego
 	Player        *Player      // guarda el objeto del datos del jugador
@@ -128,21 +137,24 @@ func (j *Game) MoveEnemy() {
 }
 
 func (j *Game) GameOver() {
-	// tenemos que registrar el puntaje del jugados
-	diff := time.Now().Sub(j.StartTime).Seconds()
-	e := j.Enemys[0] // tomamos el primer enemigo, todos comparten el mismo dato
+	diff := time.Since(j.StartTime).Seconds()
+	e := j.Enemys[0]
+
+	// Guardar “último resultado” para mostrarlo en pantalla
+	j.LastScore = j.Player.Points
+	j.LastTimeSec = diff
+	j.LastVelocity = e.Elapse
+
 	err := j.DB.Create(&GameScore{
 		Velocity: e.Elapse,
 		Score:    j.Player.Points,
 		Time:     diff,
 	}).Error
-
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	j.State = GameOverState
-
 }
 
 func (j *Game) DrawMaze(screen *ebiten.Image) {
@@ -178,48 +190,257 @@ func (j *Game) DrawMaze(screen *ebiten.Image) {
 	}
 }
 
-func (j *Game) Update() error {
-	if j.State == PlayingState {
-		j.MovePlayer()
-		j.MoveEnemy()
-		// validamos si tanto el enemigo como el jugador llegaron a colisionar si estan en
-		// en el mismo punto (nodo)
+// Funciones de Menu
+func (j *Game) resetRun() {
+	// Reinicio mínimo para “Jugar” SIN rearmar todo el juego ni tocar tu lógica.
+	// Esto evita romper el estado y mantiene tu estructura.
+	j.Player.Points = 0
+	j.StartTime = time.Now()
+	j.State = PlayingState
+}
 
-		for _, e := range j.Enemys { // validamos si alguno de los enemigos toca al jugador
-			if e.NodePosition.Equal(j.Player.NodePosition) || j.Player.Points == MaxAjolotePoints {
-				// indicamos que tenemos que acabar el juego
-				j.GameOver()
-			}
+func (j *Game) loadTopScores() {
+	if j.ScoresLoaded {
+		return
+	}
+	var scores []GameScore
+	// Top 10 por Score DESC (si quieres desempate por tiempo, lo puedes ajustar)
+	err := j.DB.Order("score DESC").Limit(10).Find(&scores).Error
+	if err != nil {
+		// No reventamos el juego; solo dejamos vacío
+		j.Scores = nil
+		j.ScoresLoaded = true
+		return
+	}
+	j.Scores = scores
+	j.ScoresLoaded = true
+}
+
+func (j *Game) UpdateMenu() error {
+	// Navegación (una vez por pulsación)
+	if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
+		j.MenuIndex--
+		if j.MenuIndex < 0 {
+			j.MenuIndex = 2
 		}
+	} else if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
+		j.MenuIndex++
+		if j.MenuIndex > 2 {
+			j.MenuIndex = 0
+		}
+	}
 
+	// Selección
+	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		switch j.MenuIndex {
+		case 0: // Jugar
+			j.StartNewRun()
+		case 1: // Puntuaciones
+			j.ScoresLoaded = false
+			j.loadTopScores()
+			j.State = ScoresState
+		case 2: // Salir
+			return ebiten.Termination
+		}
 	}
 
 	return nil
 }
 
+func (j *Game) UpdateScores() error {
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) || inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		j.State = MenuState
+	}
+	return nil
+}
+
+func (j *Game) DrawMenu(screen *ebiten.Image) {
+	screen.Fill(color.Black)
+
+	scale := 1.0
+
+	// ---------- TÍTULO ----------
+	title := "Catch me!"
+	w, _ := text.Measure(title, j.Font.Face, scale)
+
+	titleX := (float64(j.Dimensiones.Ancho) - w) / 2
+	titleY := 80.0
+
+	j.Font.Options.GeoM.Translate(titleX, titleY)
+	text.Draw(screen, title, j.Font.Face, j.Font.Options)
+	j.Font.Options.GeoM.Reset()
+
+	// ---------- MENÚ ----------
+	opts := []string{"Jugar", "Puntuaciones", "Salir"}
+
+	startY := float64(j.Dimensiones.Alto)/2 - float64(len(opts)*40)/2
+
+	for i, o := range opts {
+		prefix := "  "
+		if i == j.MenuIndex {
+			prefix = "> "
+		}
+
+		line := prefix + o
+		lw, _ := text.Measure(line, j.Font.Face, scale)
+
+		x := (float64(j.Dimensiones.Ancho) - lw) / 2
+		y := startY + float64(i*40)
+
+		j.Font.Options.GeoM.Translate(x, y)
+		text.Draw(screen, line, j.Font.Face, j.Font.Options)
+		j.Font.Options.GeoM.Reset()
+	}
+}
+
+func (j *Game) DrawScores(screen *ebiten.Image) {
+	screen.Fill(color.Black)
+
+	text.Draw(screen, "Puntuaciones (Top 10)", j.Font.Face, j.Font.Options)
+	j.Font.Options.GeoM.Translate(0, 50)
+
+	if len(j.Scores) == 0 {
+		text.Draw(screen, "Sin registros.", j.Font.Face, j.Font.Options)
+		j.Font.Options.GeoM.Reset()
+		return
+	}
+
+	// Lista
+	y := 0
+	for i, s := range j.Scores {
+		line := fmt.Sprintf("%2d) Score: %d  Time: %.2fs  Vel: %d", i+1, s.Score, s.Time, s.Velocity)
+
+		// Dibujar línea en Y
+		j.Font.Options.GeoM.Translate(0, float64(y))
+		text.Draw(screen, line, j.Font.Face, j.Font.Options)
+
+		// regresar X y avanzar Y
+		j.Font.Options.GeoM.Translate(0, -float64(y))
+		y += 30
+	}
+
+	// Footer
+	j.Font.Options.GeoM.Translate(0, float64(50+y))
+	text.Draw(screen, "ESC o ENTER para volver", j.Font.Face, j.Font.Options)
+
+	j.Font.Options.GeoM.Reset()
+}
+
+func (j *Game) StartNewRun() {
+	// 1) Reiniciar jugador
+	puntoInicial := NewNode(1, 1)
+	middleX := float64(puntoInicial.X * squareSize)
+	middleY := float64(puntoInicial.Y * squareSize)
+
+	startPosition := NewVector(middleX, middleY)
+	j.Player.Points = 0
+	j.Player.IsMoving = false
+	j.Player.CurrentPosition = startPosition.Clone()
+	j.Player.TargetPosition = startPosition.Clone()
+	j.Player.NodePosition = NewNode(1, 1)
+
+	// 2) Nuevo mapa
+	mapa := NewMaze(j.Dimensiones.Columnas, j.Dimensiones.Filas)
+	Mazerand(mapa)
+	j.Maze = mapa
+
+	// 3) Reiniciar enemigos (limpio y seguro)
+	j.Enemys = nil
+
+	f := j.Dimensiones.Filas
+	c := j.Dimensiones.Columnas
+
+	delta := EnemyElapseMax - EnemyElapseMin
+	pasos := MaxAjolotePoints / delta
+	deltaStep := delta / pasos
+
+	j.NewEnemy(NewNode(c-2, f-2), deltaStep)
+	j.NewEnemy(NewNode(c-2, 1), deltaStep)
+	j.NewEnemy(NewNode(1, f-2), deltaStep)
+
+	for _, e := range j.Enemys {
+		e.CalculatePath()
+	}
+
+	// 4) Reiniciar cronómetro
+	j.StartTime = time.Now()
+
+	// 5) A jugar
+	j.State = PlayingState
+}
+
+//Fin de Menu
+
+func (j *Game) Update() error {
+	switch j.State {
+	case MenuState:
+		return j.UpdateMenu()
+
+	case ScoresState:
+		return j.UpdateScores()
+
+	case GameOverState:
+		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+			j.StartNewRun()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			j.State = MenuState
+		}
+
+	case PlayingState:
+		j.MovePlayer()
+		j.MoveEnemy()
+		for _, e := range j.Enemys {
+			if e.NodePosition.Equal(j.Player.NodePosition) || j.Player.Points == MaxAjolotePoints {
+				j.GameOver()
+			}
+		}
+	}
+	return nil
+}
+
 func (j *Game) Draw(screen *ebiten.Image) {
+	switch j.State {
+	case MenuState:
+		j.DrawMenu(screen)
+		return
 
-	// dibujamos le puntaje
-	if j.State == PlayingState {
+	case ScoresState:
+		j.DrawScores(screen)
+		return
+
+	case PlayingState:
 		j.DrawMaze(screen)
-		// dibujamos el jugaodor
-		// lo colocamos en medio de la celda
+
 		j.Player.DrawPlayer(screen)
-
-		//j.Enemy.Draw(screen)
-
 		for _, e := range j.Enemys {
 			e.Draw(screen)
 		}
 
-		// animacion para los ajolote poins
 		j.MazeAssets.AjoloteAnimation.Tick()
 
-	} else if j.State == GameOverState {
-		// dibujamos el games over
+		text.Draw(screen, fmt.Sprintf("Puntaje: %d", j.Player.Points), j.Font.Face, j.Font.Options)
+		return
 
+	case GameOverState:
+		screen.Fill(color.Black)
+
+		text.Draw(screen, "Perdiste", j.Font.Face, j.Font.Options)
+		j.Font.Options.GeoM.Translate(0, 40)
+
+		text.Draw(screen, fmt.Sprintf("Puntaje: %d", j.LastScore), j.Font.Face, j.Font.Options)
+		j.Font.Options.GeoM.Translate(0, 35)
+
+		text.Draw(screen, fmt.Sprintf("Tiempo: %.2fs", j.LastTimeSec), j.Font.Face, j.Font.Options)
+		j.Font.Options.GeoM.Translate(0, 35)
+
+		text.Draw(screen, fmt.Sprintf("Velocidad: %d", j.LastVelocity), j.Font.Face, j.Font.Options)
+		j.Font.Options.GeoM.Translate(0, 50)
+
+		text.Draw(screen, "ENTER: jugar de nuevo   ESC: menu", j.Font.Face, j.Font.Options)
+
+		j.Font.Options.GeoM.Reset()
 	}
-	text.Draw(screen, fmt.Sprintf("Puntaje: %d", j.Player.Points), j.Font.Face, j.Font.Options)
 }
 
 func (j *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -359,7 +580,7 @@ func main() {
 			Floor: openAsset(assetsFS, "assets/floor.png"),
 			Wall:  openAsset(assetsFS, "assets/wall.png"),
 		},
-		State:     PlayingState,
+		State:     MenuState,
 		DB:        db,
 		StartTime: time.Now(),
 	}
