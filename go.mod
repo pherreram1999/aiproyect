@@ -5,10 +5,7 @@ go 1.25
 require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/hajimehoshi/ebiten/v2 v2.9.0
-<<<<<<< HEAD
-=======
 	gonum.org/v1/gonum v0.17.0
->>>>>>> origin/main
 	gorm.io/gorm v1.31.1
 )
 
@@ -39,4 +36,5 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.40.1 // indirect
+	github.com/some/module v1.0.0
 )

@@ -442,15 +442,12 @@ func (j *Game) Draw(screen *ebiten.Image) {
 		text.Draw(screen, "ENTER: jugar de nuevo   ESC: menu", j.Font.Face, j.Font.Options)
 
 		j.Font.Options.GeoM.Reset()
-	}
-<<<<<<< HEAD
-=======
 
-	text.Draw(screen, fmt.Sprintf("Puntaje: %d", j.Player.Points), j.Font.Face, j.Font.Options)
-	fontVelocidad := *j.Font.Options
-	fontVelocidad.GeoM.Translate(300, 0)
-	text.Draw(screen, fmt.Sprintf("Velocidad: %d", j.Enemys[0].Elapse), j.Font.Face, &fontVelocidad)
->>>>>>> origin/main
+		text.Draw(screen, fmt.Sprintf("Puntaje: %d", j.Player.Points), j.Font.Face, j.Font.Options)
+		fontVelocidad := *j.Font.Options
+		fontVelocidad.GeoM.Translate(300, 0)
+		text.Draw(screen, fmt.Sprintf("Velocidad: %d", j.Enemys[0].Elapse), j.Font.Face, &fontVelocidad)
+	}
 }
 
 func (j *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
